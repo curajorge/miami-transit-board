@@ -22,8 +22,6 @@ const ui = {
   decisionArrival: document.querySelector("#decisionArrival"),
   decisionReason: document.querySelector("#decisionReason"),
   optionDetails: document.querySelector("#optionDetails"),
-  from: document.querySelector("#fromSelect"),
-  to: document.querySelector("#toSelect"),
   swap: document.querySelector("#swapButton"),
   boardRows: document.querySelector("#boardRows"),
   pickHint: document.querySelector("#pickHint"),
@@ -57,7 +55,6 @@ function refreshEndpointCards() {
 function setEndpoint(role, endpointValue) {
   const value = endpointValue.includes(":") ? endpointValue : `stop:${endpointValue}`;
   state[role] = value;
-  ui[role].value = value;
   localStorage.setItem(`transit.${role}`, value);
   refreshEndpointCards();
   renderPlan();
@@ -154,9 +151,9 @@ function decodePolyline(encoded) {
 function initMap() {
   state.map = L.map("map", { zoomControl: false }).setView(BISCAYNE_CENTER, 13);
   L.control.zoom({ position: "bottomright" }).addTo(state.map);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
-    attribution: "&copy; OpenStreetMap contributors",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
   }).addTo(state.map);
 }
 
@@ -174,12 +171,6 @@ async function loadRoute() {
 }
 
 function populateStations() {
-  const placeOptions = `<optgroup label="Saved places"><option value="place:home">Whole Foods · Edgewater</option><option value="place:downtown">Downtown · Bayfront</option><option value="place:brickell">Brickell · Metromover</option></optgroup>`;
-  const stopOptions = state.stops.map((stop) => `<option value="stop:${stop.ID}">${stop.StopNumber}</option>`).join("");
-  const busOptions = ["3", "9"].map((route) => `<optgroup label="Metrobus ${route}">${BUS_STOPS.filter((stop) => stop.route === route).map((stop) => `<option value="bus:${route}:${stop.direction}:${stop.id}">${stop.name} · ${stop.direction}bound</option>`).join("")}</optgroup>`).join("");
-  const html = `${placeOptions}<optgroup label="Biscayne trolley">${stopOptions}</optgroup>${busOptions}`;
-  ui.from.innerHTML = html; ui.to.innerHTML = html;
-  ui.from.value = state.from; ui.to.value = state.to;
   refreshEndpointCards();
   renderPlan();
 }
@@ -278,7 +269,10 @@ function updateMarkers(vehicles) {
       marker = L.marker([lat, lng], { icon: trolleyIcon(vehicle.ShortName) }).addTo(state.map);
       state.markers.set(id, marker);
     } else marker.setLatLng([lat, lng]);
-    marker.bindPopup(`<p class="popup-title">Trolley ${vehicle.ShortName || id}</p><p class="popup-meta">Position updated ${formatAge(vehicle.Tim)}</p>`);
+    const content = document.createElement("div");
+    const title = document.createElement("p"); title.className = "popup-title"; title.textContent = `Trolley ${vehicle.ShortName || id}`;
+    const meta = document.createElement("p"); meta.className = "popup-meta"; meta.textContent = `Position updated ${formatAge(vehicle.Tim)}`;
+    content.append(title, meta); marker.bindPopup(content);
   });
   state.markers.forEach((marker, id) => {
     if (!active.has(id)) { marker.remove(); state.markers.delete(id); }
@@ -332,11 +326,8 @@ async function start() {
 }
 
 ui.refresh.addEventListener("click", refreshVehicles);
-ui.from.addEventListener("change", () => { state.from = ui.from.value; localStorage.setItem("transit.from", state.from); renderPlan(); });
-ui.to.addEventListener("change", () => { state.to = ui.to.value; localStorage.setItem("transit.to", state.to); renderPlan(); });
 ui.swap.addEventListener("click", () => {
   [state.from, state.to] = [state.to, state.from];
-  ui.from.value = state.from; ui.to.value = state.to;
   localStorage.setItem("transit.from", state.from); localStorage.setItem("transit.to", state.to);
   refreshEndpointCards();
   renderPlan();

@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0a558c" />
     <meta name="description" content="A simple live map for Miami's Biscayne trolley route." />
-    <title>Biscayne Trolley Live</title>
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'" />
+    <title>Miami Transit Board</title>
     <link rel="stylesheet" href="vendor/leaflet.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -30,8 +32,6 @@
           <button class="endpoint-card" type="button" data-pick-role="from" aria-label="Choose starting stop on map"><span>FROM</span><strong id="fromLabel">Whole Foods</strong><small id="fromDetail">Edgewater</small></button>
           <button class="swap-button" id="swapButton" type="button" aria-label="Swap starting place and destination">⇅</button>
           <button class="endpoint-card" type="button" data-pick-role="to" aria-label="Choose destination stop on map"><span>TO</span><strong id="toLabel">Downtown</strong><small id="toDetail">Bayfront</small></button>
-          <select id="fromSelect" aria-label="Starting place" hidden></select>
-          <select id="toSelect" aria-label="Destination" hidden></select>
         </div>
         <button class="return-home" type="button" data-trip="home">Going home? Reverse this trip</button>
         <div class="time-row">

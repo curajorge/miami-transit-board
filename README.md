@@ -1,41 +1,81 @@
-# Biscayne Trolley Live
+# Miami Transit Board
 
-A mobile-first prototype showing live vehicle positions for the City of Miami's Biscayne trolley route.
+[![CI](https://github.com/curajorge/miami-transit-board/actions/workflows/ci.yml/badge.svg)](https://github.com/curajorge/miami-transit-board/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-## Run locally
+A deterministic, mobile-first decision board for trips from Edgewater toward Downtown Miami and Brickell. It combines the Biscayne trolley with nearby Metrobus 3 and 9 arrivals and answers a practical question: **when should I leave, where should I board, and when should I expect to arrive?**
+
+No AI is used for trip recommendations. Every recommendation comes from explicit timing, walking, direction, and reliability rules in [`engine.js`](engine.js).
+
+## What works
+
+- Live City of Miami Biscayne trolley positions, refreshed every 30 seconds
+- Metrobus 3 and 9 arrivals for the common Home-to-Downtown trip
+- Leave-now and arrive-by planning for Downtown and Brickell
+- Direction-aware return trips
+- All 60 Biscayne trolley stops
+- Metrobus 3 and 9 stops generated from Miami-Dade GTFS
+- Map filters organized by Trolley, Bus 3, and Bus 9
+- Map-based From/To selection that preserves service, direction, and stop
+- Clear live, stale, headway, and schedule-estimate labels
+- An Android WebView wrapper with only the Internet permission
+
+See [Transit data sources](DATA_SOURCES.md) for the provenance and limitations of each feed.
+
+## Run the web app
+
+Requirements: Node.js 24 or newer and `curl`.
 
 ```bash
-node server.js
+npm start
 ```
 
-Then open <http://localhost:4173>.
+Open <http://localhost:4173>. The local server proxies the legacy public tracker endpoints and serves only an allowlist of application assets.
 
-The small local server reads route geometry and vehicle positions from the public endpoint used by the City of Miami's official trolley tracker. This avoids the tracker's browser compatibility problem, so the app must be run with `node server.js` rather than opened directly as a file.
+Run verification with:
 
-## Current scope
+```bash
+npm run verify
+```
 
-- Biscayne route only (public route ID `71276`)
-- Live vehicle positions refreshed every 30 seconds
-- Vehicle update age and stale-data warning
-- Responsive mobile and desktop layout
-- Deterministic comparison of the Biscayne trolley with Metrobus 3 and 9 for the common Home-to-Downtown trip
-- Leave-now and arrive-by planning for Downtown and Brickell
-- Expandable arithmetic/source explanation for every recommendation
-- All 60 official Biscayne trolley stops on an interactive map
-- Official Metrobus 3 and 9 stops generated from Miami-Dade GTFS and grouped by service and direction
-- Map filters for All, Trolley, Bus 3, and Bus 9 stops
-- Map-based From/To assignment: tap either trip card, then tap a stop
-- Trolley and bus stop popups preserve the selected service, direction, and stop
-- Direction-aware saved places for Whole Foods, Downtown, and Brickell
-- One-tap outbound/return trip reversal
-- Locally remembered From/To selections
+## Build the Android app
 
-## Open source
+Requirements: JDK 17 and an Android SDK with API 35 installed.
 
-This project is licensed under the MIT License. Contributions are welcome; see `CONTRIBUTING.md`. Live transit information can be delayed or unavailable, so recommendations should be treated as estimates rather than guarantees.
+```bash
+cd android
+./gradlew assembleDebug
+```
 
-The leave-time recommendation uses fresh City trolley positions and public Miami-Dade BusTime arrivals for Routes 3 and 9. If a live trolley cannot be identified, the trolley option clearly falls back to the Biscayne route's published headway. The calculation subtracts the walk to the boarding stop and a small boarding cushion from each arrival estimate.
+The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
 
-Run `node tools/extract-bus-stops.mjs PATH_TO_EXTRACTED_GTFS bus-stops.js` to refresh the bundled Route 3 and 9 stop catalog from a newer Miami-Dade GTFS download.
+## Refresh Metrobus stops
 
-This is an independent prototype and is not affiliated with or endorsed by the City of Miami.
+Download and extract Miami-Dade's current GTFS archive, then run:
+
+```bash
+node tools/extract-bus-stops.mjs PATH_TO_EXTRACTED_GTFS bus-stops.js
+```
+
+Review the generated diff and run `npm run verify` before committing it.
+
+## Project structure
+
+| Path | Purpose |
+| --- | --- |
+| `engine.js` | Deterministic trip comparison and timing rules |
+| `app.js` | Map, public-feed adapters, and interface state |
+| `server.js` | Local static server and constrained feed proxies |
+| `bus-stops.js` | Generated Route 3 and 9 stop catalog |
+| `android/` | Minimal Android WebView wrapper |
+| `tools/` | Reproducible data-generation utilities |
+
+## Contributing and security
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Please report security issues privately as described in [SECURITY.md](SECURITY.md).
+
+## Disclaimer
+
+This is an independent prototype, not an official City of Miami or Miami-Dade County application. Transit information can be late, stale, incomplete, or unavailable. Allow extra time for important trips.
+
+Licensed under the [MIT License](LICENSE).

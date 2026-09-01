@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MiamiTrolleyLive"
+rootProject.name = "MiamiTransitBoard"
 include ":app"

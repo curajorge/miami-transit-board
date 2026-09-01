@@ -9,27 +9,45 @@ const PORT = Number(process.env.PORT || 4173);
 const ROOT = __dirname;
 const TRACKER_URL = "https://publictransportation.tsomobile.com/rest/PubTrans/GetModuleInfoPublic";
 const MIME = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json; charset=utf-8" };
-const ALLOWED_KEYS = new Set(["ROUTES_BYTKN", "UNITS_LOCATION_ROUTE", "STOPINFO_WITHOVERLAPS"]);
 const BUS_STOPS = { "3": "6706", "9": "6774" };
+const PUBLIC_FILES = new Set(["index.html", "styles.css", "engine.js", "app.js", "bus-stops.js", "vendor/leaflet.css", "vendor/leaflet.js"]);
+const responseCache = new Map();
+const inFlight = new Map();
 
 function send(res, status, body, type = "application/json; charset=utf-8") {
-  res.writeHead(status, { "Content-Type": type, "Cache-Control": "no-store" });
+  res.writeHead(status, { "Content-Type": type, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "strict-origin-when-cross-origin", "X-Frame-Options": "DENY" });
   res.end(body);
+}
+
+async function cachedCurl(key, args, ttl = 15_000) {
+  const cached = responseCache.get(key);
+  if (cached && Date.now() - cached.time < ttl) return cached.text;
+  if (inFlight.has(key)) return inFlight.get(key);
+  const request = execFileAsync("curl", args, { maxBuffer: 5 * 1024 * 1024 }).then(({ stdout }) => {
+    responseCache.set(key, { time: Date.now(), text: stdout });
+    return stdout;
+  }).finally(() => inFlight.delete(key));
+  inFlight.set(key, request);
+  return request;
 }
 
 async function proxyTracker(reqUrl, res) {
   const key = reqUrl.searchParams.get("Key");
-  if (!ALLOWED_KEYS.has(key)) return send(res, 400, JSON.stringify({ error: "Unsupported tracker request." }));
+  if (!new Set(["ROUTES_BYTKN", "UNITS_LOCATION_ROUTE"]).has(key)) return send(res, 400, JSON.stringify({ error: "Unsupported tracker request." }));
 
   const upstream = new URL(TRACKER_URL);
-  for (const [name, value] of reqUrl.searchParams) upstream.searchParams.set(name, value);
+  if (key === "ROUTES_BYTKN") {
+    upstream.searchParams.set("Key", key); upstream.searchParams.set("id", "-1"); upstream.searchParams.set("f1", "81E39EC9-D773-447E-BE29-D7F30AB177BC"); upstream.searchParams.set("f2", ""); upstream.searchParams.set("f3", ""); upstream.searchParams.set("lan", "en");
+  } else {
+    upstream.searchParams.set("Key", key); upstream.searchParams.set("id", "71276"); upstream.searchParams.set("lan", "en");
+  }
   upstream.searchParams.set("callback", "x");
   upstream.searchParams.set("_", Date.now().toString());
 
   try {
     // The legacy service returns HTTP 500 to browsers and Node's HTTP client.
     // execFile passes the URL as a literal argument; no shell is involved.
-    const { stdout: text } = await execFileAsync("curl", ["-L", "--fail", "--silent", "--show-error", "--max-time", "10", upstream.toString()], { maxBuffer: 5 * 1024 * 1024 });
+    const text = await cachedCurl(`tracker:${key}`, ["-L", "--fail", "--silent", "--show-error", "--max-time", "10", upstream.toString()]);
     const match = text.match(/^x\((.*)\);?\s*$/s);
     if (!match) throw new Error("Unexpected upstream response");
     const payload = JSON.parse(match[1]);
@@ -47,8 +65,7 @@ async function proxyBus(reqUrl, res) {
   if (!stop) return send(res, 400, JSON.stringify({ error: "Unsupported bus route." }));
   const upstream = `https://transitbustime.miamidade.gov/bustime/wireless/html/eta.jsp?direction=MetroBus%3ASOUTHBOUND&id=MetroBus%3A${stop}&route=MetroBus%3A${route}&showAllBusses=off`;
   try {
-    // Miami-Dade's BusTime host currently serves an incomplete certificate chain.
-    const { stdout: html } = await execFileAsync("curl", ["-k", "-L", "--fail", "--silent", "--show-error", "--max-time", "10", upstream], { maxBuffer: 1024 * 1024 });
+    const html = await cachedCurl(`bus:${route}`, ["-L", "--fail", "--silent", "--show-error", "--max-time", "10", "--max-filesize", "1048576", upstream], 20_000);
     const minutes = [...html.matchAll(/<strong class="larger">\s*(\d+)(?:&nbsp;|\s)*MIN/gi)].map((match) => Number(match[1]));
     send(res, 200, JSON.stringify({ route, stop, direction: "south", minutes, source: "Miami-Dade BusTime" }));
   } catch (error) {
@@ -57,9 +74,9 @@ async function proxyBus(reqUrl, res) {
 }
 
 function serveFile(reqUrl, res) {
-  const requested = reqUrl.pathname === "/" ? "/index.html" : reqUrl.pathname;
-  const file = path.join(ROOT, path.normalize(requested).replace(/^(\.\.[/\\])+/, ""));
-  if (!file.startsWith(ROOT)) return send(res, 403, "Forbidden", "text/plain");
+  const requested = reqUrl.pathname === "/" ? "index.html" : reqUrl.pathname.replace(/^\/+/, "");
+  if (!PUBLIC_FILES.has(requested)) return send(res, 404, "Not found", "text/plain");
+  const file = path.join(ROOT, requested);
   fs.readFile(file, (error, data) => {
     if (error) return send(res, 404, "Not found", "text/plain");
     send(res, 200, data, MIME[path.extname(file)] || "application/octet-stream");
@@ -67,10 +84,12 @@ function serveFile(reqUrl, res) {
 }
 
 http.createServer((req, res) => {
-  const reqUrl = new URL(req.url, `http://${req.headers.host}`);
+  let reqUrl;
+  try { reqUrl = new URL(req.url, "http://127.0.0.1"); }
+  catch { return send(res, 400, "Bad request", "text/plain"); }
   if (reqUrl.pathname === "/api/tracker") return void proxyTracker(reqUrl, res);
   if (reqUrl.pathname === "/api/bus") return void proxyBus(reqUrl, res);
   serveFile(reqUrl, res);
 }).listen(PORT, "127.0.0.1", () => {
-  console.log(`Biscayne Trolley Live: http://localhost:${PORT}`);
+  console.log(`Miami Transit Board: http://localhost:${PORT}`);
 });

@@ -2,6 +2,8 @@ package com.jcm.miamitrolleylive;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -24,6 +26,7 @@ public class MainActivity extends Activity {
     private static final String APP_ORIGIN = "https://app.local/";
     private static final String TRACKER = "https://publictransportation.tsomobile.com/rest/PubTrans/GetModuleInfoPublic";
     private static final String BUS_TIME = "https://transitbustime.miamidade.gov/bustime/wireless/html/eta.jsp";
+    private static final int MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
     private WebView webView;
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -41,16 +44,28 @@ public class MainActivity extends Activity {
         settings.setAllowContentAccess(false);
         settings.setGeolocationEnabled(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        settings.setUserAgentString("MiamiTransitBoard/0.1 (+https://github.com/curajorge/miami-transit-board)");
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                URL url = request.getUrl() == null ? null : toUrl(request.getUrl().toString());
+                Uri requestUri = request.getUrl();
+                URL url = requestUri == null ? null : toUrl(requestUri.toString());
                 if (url == null) return error("Invalid request");
-                if (url.getHost().equals("app.local") && url.getPath().equals("/api/tracker")) return trackerResponse(url);
-                if (url.getHost().equals("app.local") && url.getPath().equals("/api/bus")) return busResponse(url);
-                if (url.getHost().equals("app.local")) return assetResponse(url.getPath());
+                if (isAppOrigin(requestUri) && url.getPath().equals("/api/tracker")) return trackerResponse(url);
+                if (isAppOrigin(requestUri) && url.getPath().equals("/api/bus")) return busResponse(url);
+                if (isAppOrigin(requestUri)) return assetResponse(url.getPath());
                 return super.shouldInterceptRequest(view, request);
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                Uri uri = request.getUrl();
+                if (isAppOrigin(uri)) return false;
+                if (request.isForMainFrame() && uri != null && ("https".equals(uri.getScheme()) || "http".equals(uri.getScheme()))) {
+                    try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); } catch (Exception ignored) { }
+                }
+                return true;
             }
         });
 
@@ -59,6 +74,10 @@ public class MainActivity extends Activity {
 
     private URL toUrl(String value) {
         try { return new URL(value); } catch (Exception ignored) { return null; }
+    }
+
+    private boolean isAppOrigin(Uri uri) {
+        return uri != null && "https".equals(uri.getScheme()) && "app.local".equals(uri.getHost()) && uri.getPort() == -1;
     }
 
     private WebResourceResponse assetResponse(String path) {
@@ -72,8 +91,11 @@ public class MainActivity extends Activity {
     private WebResourceResponse trackerResponse(URL localUrl) {
         HttpURLConnection connection = null;
         try {
-            String query = localUrl.getQuery() == null ? "" : localUrl.getQuery();
-            if (!(query.contains("Key=ROUTES_BYTKN") || query.contains("Key=UNITS_LOCATION_ROUTE") || query.contains("Key=STOPINFO_WITHOVERLAPS"))) return error("Unsupported request");
+            String key = Uri.parse(localUrl.toString()).getQueryParameter("Key");
+            String query;
+            if ("ROUTES_BYTKN".equals(key)) query = "Key=ROUTES_BYTKN&id=-1&f1=81E39EC9-D773-447E-BE29-D7F30AB177BC&f2=&f3=&lan=en";
+            else if ("UNITS_LOCATION_ROUTE".equals(key)) query = "Key=UNITS_LOCATION_ROUTE&id=71276&lan=en";
+            else return error("Unsupported request");
             URL upstream = new URL(TRACKER + "?" + query + "&callback=x&_=" + System.currentTimeMillis());
             connection = (HttpURLConnection) upstream.openConnection();
             connection.setRequestProperty("User-Agent", "curl/8.14.1");
@@ -128,7 +150,10 @@ public class MainActivity extends Activity {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         byte[] buffer = new byte[8192];
         int count;
-        while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+        while ((count = input.read(buffer)) != -1) {
+            if (output.size() + count > MAX_RESPONSE_BYTES) throw new Exception("Upstream response too large");
+            output.write(buffer, 0, count);
+        }
         return output.toString(StandardCharsets.UTF_8.name());
     }
 
@@ -139,7 +164,7 @@ public class MainActivity extends Activity {
     private WebResourceResponse jsonResponse(String json, int status, String reason) {
         WebResourceResponse response = new WebResourceResponse("application/json", "UTF-8", new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8)));
         response.setStatusCodeAndReasonPhrase(status, reason);
-        response.setResponseHeaders(java.util.Map.of("Access-Control-Allow-Origin", "*", "Cache-Control", "no-store"));
+        response.setResponseHeaders(java.util.Map.of("Cache-Control", "no-store", "X-Content-Type-Options", "nosniff"));
         return response;
     }
 
