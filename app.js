@@ -12,7 +12,7 @@ const ui = {
   error: document.querySelector("#errorMessage"),
   loading: document.querySelector("#mapLoading"),
   refresh: document.querySelector("#refreshButton"),
-  locate: document.querySelector("#locateButton"),
+  eyebrow: document.querySelector("#tripEyebrow"),
   arriveTime: document.querySelector("#arriveTime"),
   decisionKicker: document.querySelector("#decisionKicker"),
   decisionTime: document.querySelector("#decisionTime"),
@@ -35,7 +35,7 @@ const ui = {
 function endpointText(value) {
   if (value.startsWith("place:")) {
     const place = TransitEngine.PLACES[value.slice(6)];
-    return { name: place.name, detail: place.detail };
+    return place ? { name: place.name, detail: place.detail } : { name: "Choose on map", detail: "Tap a Biscayne stop" };
   }
   const stop = TransitEngine.normalizeStops(state.stops).find((item) => item.id === value.replace("stop:", ""));
   return { name: stop?.name || "Choose on map", detail: stop ? `Biscayne stop ${stop.sequence}` : "Tap a stop" };
@@ -63,7 +63,7 @@ function setPickRole(role) {
 }
 
 function updatePickHint(message) {
-  ui.pickHint.textContent = message || "Tap a stop to see times and assign it";
+  ui.pickHint.textContent = message || "Tap a stop for its next Biscayne trolley";
 }
 
 const clock = (date) => new Intl.DateTimeFormat([], { hour: "numeric", minute: "2-digit" }).format(date);
@@ -79,28 +79,31 @@ function renderPlan() {
   }
   const plan = TransitEngine.planTrip({ from: state.from, to: state.to, stops: state.stops, mode: state.mode, arriveBy: arriveBy?.toISOString(), vehicles: state.vehicles, now });
   if (!plan) {
-    ui.decisionKicker.textContent = "Choose two different stops";
+    ui.decisionKicker.textContent = "Choose stops in the same direction";
     ui.decisionTime.textContent = "—";
     ui.decisionAction.textContent = "";
-    ui.decisionRoute.textContent = "Select where you are leaving and where you want to go.";
+    ui.decisionRoute.textContent = "Pick two Biscayne stops that travel in the same direction.";
     ui.decisionArrival.textContent = "";
     ui.decisionReason.textContent = "";
     ui.optionDetails.innerHTML = "";
     ui.boardRows.innerHTML = "";
     return;
   }
+  ui.eyebrow.textContent = `BISCAYNE · ${plan.boarding.name} ${plan.direction === "south" ? "SOUTHBOUND" : "NORTHBOUND"}`;
   ui.decisionKicker.textContent = `Best option · ${plan.best.confidence} confidence`;
   ui.decisionTime.textContent = state.mode === "arrive" ? clock(plan.leaveAt) : plan.minutesUntilLeave <= 0 ? "Now" : `${plan.minutesUntilLeave} min`;
   ui.decisionAction.textContent = state.mode === "arrive" ? "leave by" : "time to leave";
-  ui.decisionRoute.textContent = `${plan.best.label}${plan.best.vehicle ? ` ${plan.best.vehicle}` : ""} · ${plan.direction === "south" ? "↓ Southbound" : "↑ Northbound"} · ${plan.best.cost ? `$${plan.best.cost.toFixed(2)}` : "free"}`;
+  ui.decisionRoute.textContent = `${plan.best.label}${plan.best.vehicle ? ` ${plan.best.vehicle}` : ""} · ${plan.direction === "south" ? "↓ Southbound" : "↑ Northbound"} · free`;
   ui.decisionArrival.textContent = `Expected at ${plan.destination.name}: ${clock(plan.arrival)} · about ${plan.best.total} min`;
-  ui.decisionReason.textContent = `Board at ${plan.boarding.name}. Get off at ${plan.alighting.name}. ${plan.reason}`;
-  ui.optionDetails.innerHTML = plan.options.map((option, index) => `<div class="option-line"><span>${index === 0 ? "Best" : "Alternative"}: <strong>${option.label}</strong><small>${option.data}</small></span><b>${option.total} min</b></div>`).join("");
-  ui.boardRows.innerHTML = plan.options.map((option) => {
-    const leave = option.wait ? `${option.wait} min` : "now";
-    const arrive = clock(new Date(now.getTime() + option.total * 60000));
-    return `<div class="board-row"><span><strong>${option.label}</strong><small>${option.data} · ${option.cost ? `$${option.cost.toFixed(2)}` : "free"}</small></span><b>${leave}</b><b>${arrive}</b></div>`;
-  }).join("");
+  ui.decisionReason.textContent = `Walk about ${plan.walkToStop} min to ${plan.boarding.name}. Get off at ${plan.alighting.name}. ${plan.reason}`;
+  ui.optionDetails.innerHTML = `<div class="option-line"><span><strong>${plan.best.data === "live" ? "Live vehicle estimate" : "Published headway estimate"}</strong><small>Updated with each tracker refresh</small></span><b>${plan.best.total} min</b></div>`;
+  const nextBoard = state.mode === "arrive" ? new Date(plan.leaveAt.getTime() + plan.walkToStop * 60000) : new Date(now.getTime() + plan.nextTrolleyMinutes * 60000);
+  const followingBoard = new Date(nextBoard.getTime() + 15 * 60000);
+  const tripAfterBoarding = plan.best.ride + (state.to.startsWith("place:") ? 4 : 1);
+  ui.boardRows.innerHTML = [
+    { label: "Next trolley", source: plan.best.data === "live" ? "Live vehicle estimate" : "Headway estimate", board: nextBoard },
+    { label: "Following trolley", source: "Published 15-min headway", board: followingBoard },
+  ].map((item) => `<div class="board-row"><span><strong>${item.label}</strong><small>${item.source}</small></span><b>${clock(item.board)}</b><b>${clock(new Date(item.board.getTime() + tripAfterBoarding * 60000))}</b></div>`).join("");
 }
 
 async function trackerRequest(params) {
@@ -167,24 +170,33 @@ function populateStations() {
   renderPlan();
 }
 
+function stopPopup(stop, direction, eta) {
+  const content = document.createElement("div");
+  const title = document.createElement("p"); title.className = "popup-title"; title.textContent = stop.name;
+  const meta = document.createElement("p"); meta.className = "popup-meta"; meta.textContent = `Stop ${stop.sequence} · ${direction === "south" ? "↓ Southbound" : "↑ Northbound"}`;
+  const times = document.createElement("p"); times.className = "popup-times"; times.textContent = `Next trolley estimate: ${eta.minutes} min`;
+  const source = document.createElement("p"); source.className = "popup-meta"; source.textContent = eta.source === "live" ? `Based on trolley ${eta.vehicle || "position"}` : "Based on published headway";
+  const actions = document.createElement("div"); actions.className = "popup-actions";
+  [["from", "Use as start"], ["to", "Use as destination"]].forEach(([role, label]) => {
+    const button = document.createElement("button"); button.type = "button"; button.textContent = label;
+    button.addEventListener("click", () => { setEndpoint(role, stop.id); setPickRole(null); state.map.closePopup(); updatePickHint(`${label}: ${stop.name}`); });
+    actions.appendChild(button);
+  });
+  content.append(title, meta, times, source, actions);
+  return content;
+}
+
 function paintStops() {
   state.stopMarkers.forEach((marker) => marker.remove());
   const normalized = TransitEngine.normalizeStops(state.stops);
   state.stopMarkers = normalized.map((stop) => {
     const marker = L.marker([stop.lat, stop.lng], {
-    icon: L.divIcon({ className: "", html: '<div class="stop-marker"></div>', iconSize: [10,10], iconAnchor: [5,5] }), zIndexOffset: -100,
+    icon: L.divIcon({ className: "", html: '<div class="stop-marker"></div>', iconSize: [32,32], iconAnchor: [16,16] }), zIndexOffset: -100,
     }).addTo(state.map);
     marker.on("click", () => {
-      if (state.pickRole) {
-        const role = state.pickRole;
-        setEndpoint(role, stop.id);
-        setPickRole(null);
-        updatePickHint(`${role === "from" ? "Starting point" : "Destination"} set to ${stop.name}`);
-      }
       const direction = stop.sequence <= 32 ? "south" : "north";
       const eta = TransitEngine.trolleyWait(state.vehicles, stop, direction, new Date());
-      const actions = `<div class="popup-actions"><button type="button" data-stop-action="from" data-stop-id="${stop.id}">Set as From</button><button type="button" data-stop-action="to" data-stop-id="${stop.id}">Set as To</button></div>`;
-      marker.bindPopup(`<p class="popup-title">${stop.name}</p><p class="popup-meta">Stop ${stop.sequence} · ${direction === "south" ? "↓ Southbound" : "↑ Northbound"}</p><p class="popup-times">Next: about ${eta.minutes} min · then ${eta.minutes + 15} min</p><p class="popup-meta">${eta.source === "live" ? `Live estimate${eta.vehicle ? ` · trolley ${eta.vehicle}` : ""}` : "Published headway estimate"}</p>${actions}`).openPopup();
+      marker.bindPopup(stopPopup(stop, direction, eta)).openPopup();
     });
     return marker;
   });
@@ -254,26 +266,6 @@ async function refreshVehicles() {
   }
 }
 
-function locateUser() {
-  if (!navigator.geolocation) {
-    ui.error.textContent = "Location is not supported by this browser.";
-    ui.error.hidden = false;
-    return;
-  }
-  ui.locate.disabled = true;
-  navigator.geolocation.getCurrentPosition(({ coords }) => {
-    const point = [coords.latitude, coords.longitude];
-    if (state.userMarker) state.userMarker.setLatLng(point);
-    else state.userMarker = L.marker(point, { icon: L.divIcon({ className: "", html: '<div class="user-pin"></div>', iconSize: [18,18], iconAnchor: [9,9] }) }).addTo(state.map).bindPopup("You are here");
-    state.map.setView(point, 15);
-    ui.locate.disabled = false;
-  }, () => {
-    ui.error.textContent = "Location permission was not available. You can still explore the map.";
-    ui.error.hidden = false;
-    ui.locate.disabled = false;
-  }, { enableHighAccuracy: true, timeout: 8000 });
-}
-
 async function start() {
   initMap();
   try { await loadRoute(); }
@@ -283,7 +275,6 @@ async function start() {
 }
 
 ui.refresh.addEventListener("click", refreshVehicles);
-ui.locate.addEventListener("click", locateUser);
 ui.from.addEventListener("change", () => { state.from = ui.from.value; localStorage.setItem("transit.from", state.from); renderPlan(); });
 ui.to.addEventListener("change", () => { state.to = ui.to.value; localStorage.setItem("transit.to", state.to); renderPlan(); });
 ui.swap.addEventListener("click", () => {
@@ -302,21 +293,18 @@ document.querySelectorAll(".time-mode").forEach((button) => button.addEventListe
 ui.arriveTime.addEventListener("change", renderPlan);
 document.querySelectorAll("[data-trip]").forEach((button) => button.addEventListener("click", () => {
   const trip = button.dataset.trip;
-  if (trip === "home") { state.from = "place:brickell"; state.to = "place:home"; }
+  if (trip === "home") {
+    const away = state.to !== "place:home" ? state.to : state.from !== "place:home" ? state.from : "place:downtown";
+    state.from = away; state.to = "place:home";
+  }
   else { state.from = "place:home"; state.to = `place:${trip}`; }
   localStorage.setItem("transit.from", state.from); localStorage.setItem("transit.to", state.to);
   refreshEndpointCards(); renderPlan();
 }));
 document.querySelectorAll("[data-pick-role]").forEach((button) => button.addEventListener("click", () => setPickRole(button.dataset.pickRole)));
-document.querySelector("#map").addEventListener("click", (event) => {
-  const action = event.target.closest("[data-stop-action]");
-  if (!action) return;
-  setEndpoint(action.dataset.stopAction, action.dataset.stopId);
-  state.map.closePopup();
-  updatePickHint(`${action.dataset.stopAction === "from" ? "From" : "To"} updated`);
-});
-state.from = localStorage.getItem("transit.from") || state.from;
-state.to = localStorage.getItem("transit.to") || state.to;
+const savedFrom = localStorage.getItem("transit.from"), savedTo = localStorage.getItem("transit.to");
+state.from = savedFrom && (savedFrom.startsWith("place:") ? TransitEngine.PLACES[savedFrom.slice(6)] : savedFrom.startsWith("stop:")) ? savedFrom : state.from;
+state.to = savedTo && (savedTo.startsWith("place:") ? TransitEngine.PLACES[savedTo.slice(6)] : savedTo.startsWith("stop:")) ? savedTo : state.to;
 document.body.dataset.view = "board";
 refreshEndpointCards();
 updatePickHint();

@@ -6,25 +6,26 @@
     <meta name="theme-color" content="#0a558c" />
     <meta name="description" content="A simple live map for Miami's Biscayne trolley route." />
     <title>Biscayne Trolley Live</title>
-    <link rel="preconnect" href="https://unpkg.com" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <link rel="stylesheet" href="vendor/leaflet.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="app-shell">
       <header class="topbar">
         <div>
-          <p class="eyebrow">FROM WHOLE FOODS · SOUTHBOUND</p>
-          <h1>When do I <span>leave?</span></h1>
+          <p class="eyebrow" id="tripEyebrow">BISCAYNE · WHOLE FOODS SOUTHBOUND</p>
+          <h1>Your next <span>trolley</span></h1>
         </div>
-        <button class="locate-button" id="locateButton" type="button" aria-label="Show my location">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v3m0 14v3M2 12h3m14 0h3M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Z" /></svg>
-          <span>Find me</span>
-        </button>
+        <span class="route-chip">Route 2</span>
       </header>
 
       <section class="planner" aria-labelledby="plannerTitle">
-        <h2 id="plannerTitle">Plan your ride</h2>
+        <h2 id="plannerTitle">Where are you going?</h2>
+        <div class="quick-trips" aria-label="Common destinations">
+          <button type="button" data-trip="downtown">Downtown</button>
+          <button type="button" data-trip="brickell">Brickell</button>
+          <button type="button" data-pick-role="to">Pick on map</button>
+        </div>
         <div class="station-picker">
           <button class="endpoint-card" type="button" data-pick-role="from" aria-label="Choose starting stop on map"><span>FROM</span><strong id="fromLabel">Whole Foods</strong><small id="fromDetail">Edgewater</small></button>
           <button class="swap-button" id="swapButton" type="button" aria-label="Swap starting place and destination">⇅</button>
@@ -32,7 +33,7 @@
           <select id="fromSelect" aria-label="Starting place" hidden></select>
           <select id="toSelect" aria-label="Destination" hidden></select>
         </div>
-        <div class="quick-trips" aria-label="Saved trips"><button type="button" data-trip="downtown">Downtown</button><button type="button" data-trip="brickell">Brickell</button><button type="button" data-trip="home">Go home</button></div>
+        <button class="return-home" type="button" data-trip="home">Going home? Reverse this trip</button>
         <div class="time-row">
           <button class="time-mode active" type="button" data-mode="now">Leave now</button>
           <button class="time-mode" type="button" data-mode="arrive">Arrive by</button>
@@ -52,14 +53,14 @@
         <section class="arrival-board" aria-label="Upcoming options">
           <div><span>OPTION</span><span>LEAVES</span><span>ARRIVES</span></div>
           <div id="boardRows"></div>
-          <p>Times include walking and a reliability buffer. Tap any map stop for its next trolley estimate.</p>
+          <p>Biscayne trolley estimates include walking time and a boarding cushion.</p>
         </section>
       </section>
 
       <section class="map-wrap" aria-label="Live Biscayne trolley map">
         <div id="map"></div>
         <div class="map-pick-tools" id="mapPickTools">
-          <p id="pickHint">Tap a stop to see times and assign it</p>
+          <p id="pickHint">Tap a stop for its next Biscayne trolley</p>
         </div>
         <div class="map-loading" id="mapLoading" role="status">
           <span class="spinner"></span>
@@ -86,7 +87,7 @@
       </section>
     </main>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="vendor/leaflet.js"></script>
     <script src="engine.js"></script>
     <script src="app.js"></script>
   </body>

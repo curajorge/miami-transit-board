@@ -14,3 +14,6 @@ test("normalizes official stop sequence", () => assert.equal(normalizeStops(stop
 test("southbound shortcut resolves exact stops", () => { const p=planTrip({from:"place:home",to:"place:brickell",stops,now:NOW}); assert.equal(p.direction,"south"); assert.equal(p.boarding.id,"920851"); assert.equal(p.alighting.id,"920876"); });
 test("return trip resolves northbound stops", () => { const p=planTrip({from:"place:brickell",to:"place:home",stops,now:NOW}); assert.equal(p.direction,"north"); assert.equal(p.boarding.id,"921010"); assert.equal(p.alighting.id,"921033"); });
 test("arrive-by subtracts total duration", () => { const d=new Date("2026-08-31T19:00:00-04:00"),p=planTrip({from:"place:home",to:"place:downtown",stops,mode:"arrive",arriveBy:d,now:NOW}); assert.equal(Math.round((d-p.leaveAt)/60000),p.best.total); });
+test("Biscayne-only plan has no bus or walking alternatives", () => { const p=planTrip({from:"place:home",to:"place:downtown",stops,now:NOW}); assert.deepEqual(p.options.map((o)=>o.id),["trolley"]); });
+test("leave-now subtracts walking and safety from trolley wait", () => { const p=planTrip({from:"place:home",to:"place:downtown",stops,now:NOW}); assert.equal(p.minutesUntilLeave,8); });
+test("rejects opposite-direction exact stop pairs", () => assert.equal(planTrip({from:"stop:920851",to:"stop:921016",stops,now:NOW}),null));

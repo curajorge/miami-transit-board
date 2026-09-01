@@ -17,9 +17,8 @@ The small local server reads route geometry and vehicle positions from the publi
 - Biscayne route only (public route ID `71276`)
 - Live vehicle positions refreshed every 30 seconds
 - Vehicle update age and stale-data warning
-- User location control
 - Responsive mobile and desktop layout
-- Deterministic comparison of trolley, Bus 3, and walking
+- Deterministic Biscayne trolley leave-time guidance
 - Leave-now and arrive-by planning for Downtown and Brickell
 - Expandable arithmetic/source explanation for every recommendation
 - All 60 official Biscayne trolley stops on an interactive map
@@ -33,6 +32,6 @@ The small local server reads route geometry and vehicle positions from the publi
 
 This project is licensed under the MIT License. Contributions are welcome; see `CONTRIBUTING.md`. Live transit information can be delayed or unavailable, so recommendations should be treated as estimates rather than guarantees.
 
-The trolley option uses live positions when a fresh approaching vehicle can be identified. Bus 3 currently uses a clearly labeled 15-minute schedule model because Miami-Dade's real-time API requires a developer key. The rule engine is isolated in `engine.js` so a live bus adapter can replace that input without changing recommendation behavior.
+The leave-time recommendation uses a fresh approaching vehicle when one can be identified. Otherwise it clearly falls back to the Biscayne route's published headway. The calculation subtracts the walk to the boarding stop and a small boarding cushion from the trolley estimate.
 
 This is an independent prototype and is not affiliated with or endorsed by the City of Miami.

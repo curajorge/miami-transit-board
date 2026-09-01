@@ -26,7 +26,7 @@ dependencies {}
 
 tasks.register("prepareWebAssets", Sync) {
     from("../..") {
-        include "index.html", "styles.css", "engine.js", "app.js"
+        include "index.html", "styles.css", "engine.js", "app.js", "vendor/**"
     }
     into(layout.buildDirectory.dir("generated/webAssets/web"))
 }
