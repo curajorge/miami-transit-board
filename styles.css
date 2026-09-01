@@ -85,6 +85,18 @@ body {
 }
 .route-chip { flex: 0 0 auto; padding: 8px 10px; color: var(--ocean-deep); border-radius: 7px; background: #8ae6cb; font-size: 12px; font-weight: 900; }
 
+.stop-toolbar { padding: 12px 14px 10px; border-bottom: 1px solid var(--line); background: var(--paper); }
+.stop-toolbar > div:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.stop-toolbar h2 { margin: 0; font-size: 15px; }
+.stop-toolbar > div:first-child span { color: var(--muted); font-size: 11px; }
+.stop-filters { margin-top: 9px; display: grid; grid-template-columns: .7fr 1.2fr 1fr 1fr; gap: 6px; }
+.stop-filters button { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; color: var(--ink); border: 1px solid #c8d9df; border-radius: 8px; background: white; font-size: 11px; font-weight: 800; }
+.stop-filters button.active { color: white; border-color: var(--ocean); background: var(--ocean); }
+.legend { width: 9px; height: 9px; display: inline-block; border: 2px solid white; box-shadow: 0 0 0 1px rgba(16,39,51,.18); }
+.legend.trolley { border-radius: 50%; background: var(--route); }
+.legend.bus3 { border-radius: 2px; background: #8b3faf; }
+.legend.bus9 { border-radius: 2px; background: #16835c; }
+
 .eyebrow { margin: 0 0 4px; font: 700 11px/1 monospace; letter-spacing: .11em; opacity: .76; }
 h1 { margin: 0; font-size: clamp(29px, 8vw, 38px); line-height: .98; letter-spacing: -.045em; }
 h1 span { color: #8ae6cb; font-style: italic; font-weight: 500; }
@@ -183,6 +195,9 @@ h1 span { color: #8ae6cb; font-style: italic; font-weight: 500; }
 .trolley-marker { background: transparent; border: 0; }
 .stop-marker { width: 32px; height: 32px; display: grid; place-items: center; }
 .stop-marker::after { content: ""; width: 12px; height: 12px; border: 2px solid white; border-radius: 50%; background: var(--route); box-shadow: 0 1px 5px rgba(0,0,0,.28); }
+.bus-stop-marker { width: 34px; height: 34px; display: grid; place-items: center; color: white; border: 2px solid white; border-radius: 8px; box-shadow: 0 2px 7px rgba(0,0,0,.3); font: 900 12px/1 Arial, sans-serif; }
+.bus-stop-marker.route-3 { background: #8b3faf; }
+.bus-stop-marker.route-9 { background: #16835c; }
 .trolley-pin {
   width: 38px;
   height: 38px;

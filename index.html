@@ -57,6 +57,16 @@
         </section>
       </section>
 
+      <section class="stop-toolbar" aria-labelledby="stopsTitle">
+        <div><h2 id="stopsTitle">Stops on the map</h2><span id="visibleStopCount"></span></div>
+        <div class="stop-filters" role="group" aria-label="Filter stops by service">
+          <button class="active" type="button" data-stop-layer="all" aria-pressed="true">All</button>
+          <button type="button" data-stop-layer="trolley" aria-pressed="false"><i class="legend trolley"></i>Trolley</button>
+          <button type="button" data-stop-layer="3" aria-pressed="false"><i class="legend bus3"></i>Bus 3</button>
+          <button type="button" data-stop-layer="9" aria-pressed="false"><i class="legend bus9"></i>Bus 9</button>
+        </div>
+      </section>
+
       <section class="map-wrap" aria-label="Live Biscayne trolley map">
         <div id="map"></div>
         <div class="map-pick-tools" id="mapPickTools">
@@ -88,6 +98,7 @@
     </main>
 
     <script src="vendor/leaflet.js"></script>
+    <script src="bus-stops.js"></script>
     <script src="engine.js"></script>
     <script src="app.js"></script>
   </body>

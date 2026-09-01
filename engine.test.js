@@ -10,6 +10,12 @@ const stops = [
   { ID:"921016", Name:"Bayfront Park Metromover (NB)", StopNumber:"40 - Bayfront Park Metromover (NB)", Latitude:"25.772571", Longitude:"-80.187160" },
   { ID:"921033", Name:"NE 2 Ave (WB)", StopNumber:"56 - NE 2 Ave (WB)", Latitude:"25.804127", Longitude:"-80.191638" },
 ];
+const busStops = [
+  {route:"3",direction:"south",id:"6706",name:"Biscayne Blvd & NE 29 St",lat:25.803996,lng:-80.189448,sequence:10},
+  {route:"3",direction:"south",id:"3-downtown",name:"Downtown Terminal",lat:25.7732,lng:-80.1875,sequence:25},
+  {route:"9",direction:"south",id:"6774",name:"NE 2 Ave & NE 29 St",lat:25.804445,lng:-80.191184,sequence:10},
+  {route:"9",direction:"south",id:"9-downtown",name:"Downtown Terminal",lat:25.7732,lng:-80.1875,sequence:25},
+];
 test("normalizes official stop sequence", () => assert.equal(normalizeStops(stops)[0].sequence, 6));
 test("southbound shortcut resolves exact stops", () => { const p=planTrip({from:"place:home",to:"place:brickell",stops,now:NOW}); assert.equal(p.direction,"south"); assert.equal(p.boarding.id,"920851"); assert.equal(p.alighting.id,"920876"); });
 test("return trip resolves northbound stops", () => { const p=planTrip({from:"place:brickell",to:"place:home",stops,now:NOW}); assert.equal(p.direction,"north"); assert.equal(p.boarding.id,"921010"); assert.equal(p.alighting.id,"921033"); });
@@ -17,4 +23,6 @@ test("arrive-by subtracts total duration", () => { const d=new Date("2026-08-31T
 test("Biscayne-only plan has no bus or walking alternatives", () => { const p=planTrip({from:"place:home",to:"place:downtown",stops,now:NOW}); assert.deepEqual(p.options.map((o)=>o.id),["trolley"]); });
 test("leave-now subtracts walking and safety from trolley wait", () => { const p=planTrip({from:"place:home",to:"place:downtown",stops,now:NOW}); assert.equal(p.minutesUntilLeave,8); });
 test("rejects opposite-direction exact stop pairs", () => assert.equal(planTrip({from:"stop:920851",to:"stop:921016",stops,now:NOW}),null));
-test("compares live Routes 3 and 9 for Home to Downtown", () => { const p=planTrip({from:"place:home",to:"place:downtown",stops,buses:[{route:"3",minutes:[13]},{route:"9",minutes:[2]}],now:NOW}); assert.deepEqual(new Set(p.options.map((o)=>o.id)),new Set(["trolley","bus-3","bus-9"])); assert.equal(p.best.id,"bus-9"); });
+test("compares live Routes 3 and 9 for Home to Downtown", () => { const p=planTrip({from:"place:home",to:"place:downtown",stops,busStops,buses:[{route:"3",stop:"6706",minutes:[13]},{route:"9",stop:"6774",minutes:[2]}],now:NOW}); assert.deepEqual(new Set(p.options.map((o)=>o.id)),new Set(["trolley","bus-3","bus-9"])); assert.equal(p.best.id,"bus-9"); });
+test("preserves a selected Metrobus route and stop", () => { const p=planTrip({from:"bus:3:south:6706",to:"bus:3:south:3-downtown",stops,busStops,buses:[{route:"3",stop:"6706",minutes:[6]}],now:NOW}); assert.equal(p.options.some((o)=>o.id==="bus-3"),true); assert.equal(p.options.find((o)=>o.id==="bus-3").boarding,"Biscayne Blvd & NE 29 St"); });
+test("bus stop planning still works when trolley tracker stops are unavailable", () => { const p=planTrip({from:"bus:3:south:6706",to:"bus:3:south:3-downtown",stops:[],busStops,buses:[{route:"3",stop:"6706",minutes:[6]}],now:NOW}); assert.deepEqual(p.options.map((o)=>o.id),["bus-3"]); });

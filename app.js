@@ -2,8 +2,9 @@ const ROUTE_ID = "71276";
 const API_BASE = "/api/tracker";
 const REFRESH_MS = 30_000;
 const BISCAYNE_CENTER = [25.7867, -80.1948];
+const BUS_STOPS = Object.values(window.MiamiBusStops?.routes || {}).flatMap((group) => group.stops.map((stop) => ({ ...stop, route: group.route, direction: group.direction })));
 
-const state = { map: null, routeLayer: null, markers: new Map(), stopMarkers: [], userMarker: null, refreshing: false, vehicles: [], buses: [], stops: [], from: "place:home", to: "place:downtown", mode: "now", pickRole: null };
+const state = { map: null, routeLayer: null, markers: new Map(), stopMarkers: [], busStopMarkers: [], stopLayer: "all", userMarker: null, refreshing: false, vehicles: [], buses: [], stops: [], from: "place:home", to: "place:downtown", mode: "now", pickRole: null };
 const ui = {
   count: document.querySelector("#trolleyCount"),
   label: document.querySelector("#statusLabel"),
@@ -30,12 +31,18 @@ const ui = {
   fromDetail: document.querySelector("#fromDetail"),
   toLabel: document.querySelector("#toLabel"),
   toDetail: document.querySelector("#toDetail"),
+  visibleStopCount: document.querySelector("#visibleStopCount"),
 };
 
 function endpointText(value) {
   if (value.startsWith("place:")) {
     const place = TransitEngine.PLACES[value.slice(6)];
     return place ? { name: place.name, detail: place.detail } : { name: "Choose on map", detail: "Tap a Biscayne stop" };
+  }
+  if (value.startsWith("bus:")) {
+    const [, route, direction, id] = value.split(":");
+    const stop = BUS_STOPS.find((item) => item.route === route && item.direction === direction && item.id === id);
+    return { name: stop?.name || "Choose a bus stop", detail: `Metrobus ${route} · ${direction}bound` };
   }
   const stop = TransitEngine.normalizeStops(state.stops).find((item) => item.id === value.replace("stop:", ""));
   return { name: stop?.name || "Choose on map", detail: stop ? `Biscayne stop ${stop.sequence}` : "Tap a stop" };
@@ -47,8 +54,8 @@ function refreshEndpointCards() {
   ui.toLabel.textContent = to.name; ui.toDetail.textContent = to.detail;
 }
 
-function setEndpoint(role, stopId) {
-  const value = `stop:${stopId}`;
+function setEndpoint(role, endpointValue) {
+  const value = endpointValue.includes(":") ? endpointValue : `stop:${endpointValue}`;
   state[role] = value;
   ui[role].value = value;
   localStorage.setItem(`transit.${role}`, value);
@@ -77,7 +84,7 @@ function renderPlan() {
     arriveBy.setHours(hours, minutes, 0, 0);
     if (arriveBy < now) arriveBy.setDate(arriveBy.getDate() + 1);
   }
-  const plan = TransitEngine.planTrip({ from: state.from, to: state.to, stops: state.stops, mode: state.mode, arriveBy: arriveBy?.toISOString(), vehicles: state.vehicles, buses: state.buses, now });
+  const plan = TransitEngine.planTrip({ from: state.from, to: state.to, stops: state.stops, busStops: BUS_STOPS, mode: state.mode, arriveBy: arriveBy?.toISOString(), vehicles: state.vehicles, buses: state.buses, now });
   if (!plan) {
     ui.decisionKicker.textContent = "Choose stops in the same direction";
     ui.decisionTime.textContent = "—";
@@ -95,12 +102,12 @@ function renderPlan() {
   ui.decisionAction.textContent = state.mode === "arrive" ? "leave by" : "time to leave";
   ui.decisionRoute.textContent = `${plan.best.label}${plan.best.vehicle ? ` ${plan.best.vehicle}` : ""} · ${plan.direction === "south" ? "↓ Southbound" : "↑ Northbound"} · ${plan.best.cost ? "$2.25" : "free"}`;
   ui.decisionArrival.textContent = `Expected at ${plan.destination.name}: ${clock(plan.arrival)} · about ${plan.best.total} min`;
-  ui.decisionReason.textContent = `Walk about ${plan.walkToStop} min to ${plan.best.boarding || plan.boarding.name}. ${plan.best.id === "trolley" ? `Get off at ${plan.alighting.name}. ` : ""}${plan.reason}`;
-  ui.optionDetails.innerHTML = `<div class="option-line"><span><strong>${plan.best.data === "live" ? "Live trolley estimate" : plan.best.data === "live-bus" ? "Live Miami-Dade BusTime" : "Published headway estimate"}</strong><small>Updated with each refresh</small></span><b>${plan.best.total} min</b></div>`;
+  ui.decisionReason.textContent = `Walk about ${plan.walkToStop} min to ${plan.best.boarding || plan.boarding.name}. Get off at ${plan.best.alighting || plan.alighting.name}. ${plan.reason}`;
+  ui.optionDetails.innerHTML = `<div class="option-line"><span><strong>${plan.best.data === "live" ? "Live trolley estimate" : plan.best.data === "live-bus" ? "Live Miami-Dade BusTime" : plan.best.data === "bus-schedule" ? "Metrobus schedule estimate" : "Published trolley headway"}</strong><small>Updated with each refresh</small></span><b>${plan.best.total} min</b></div>`;
   ui.boardRows.innerHTML = plan.options.map((option) => {
     const board = new Date(now.getTime() + option.wait * 60000);
     const arrival = new Date(board.getTime() + (option.ride + option.walkFromStop) * 60000);
-    const source = option.data === "live-bus" ? "Miami-Dade BusTime" : option.data === "live" ? "Live trolley position" : "Trolley headway estimate";
+    const source = option.data === "live-bus" ? "Miami-Dade BusTime" : option.data === "bus-schedule" ? "Schedule estimate" : option.data === "live" ? "Live trolley position" : "Trolley headway estimate";
     return `<div class="board-row${option === plan.best ? " best" : ""}"><span><strong>${option.label}</strong><small>${source} · ${option.cost ? "$2.25" : "free"}</small></span><b>${clock(board)}</b><b>${clock(arrival)}</b></div>`;
   }).join("");
 }
@@ -169,7 +176,8 @@ async function loadRoute() {
 function populateStations() {
   const placeOptions = `<optgroup label="Saved places"><option value="place:home">Whole Foods · Edgewater</option><option value="place:downtown">Downtown · Bayfront</option><option value="place:brickell">Brickell · Metromover</option></optgroup>`;
   const stopOptions = state.stops.map((stop) => `<option value="stop:${stop.ID}">${stop.StopNumber}</option>`).join("");
-  const html = `${placeOptions}<optgroup label="All Biscayne stops">${stopOptions}</optgroup>`;
+  const busOptions = ["3", "9"].map((route) => `<optgroup label="Metrobus ${route}">${BUS_STOPS.filter((stop) => stop.route === route).map((stop) => `<option value="bus:${route}:${stop.direction}:${stop.id}">${stop.name} · ${stop.direction}bound</option>`).join("")}</optgroup>`).join("");
+  const html = `${placeOptions}<optgroup label="Biscayne trolley">${stopOptions}</optgroup>${busOptions}`;
   ui.from.innerHTML = html; ui.to.innerHTML = html;
   ui.from.value = state.from; ui.to.value = state.to;
   refreshEndpointCards();
@@ -198,7 +206,7 @@ function paintStops() {
   state.stopMarkers = normalized.map((stop) => {
     const marker = L.marker([stop.lat, stop.lng], {
     icon: L.divIcon({ className: "", html: '<div class="stop-marker"></div>', iconSize: [32,32], iconAnchor: [16,16] }), zIndexOffset: -100,
-    }).addTo(state.map);
+    });
     marker.on("click", () => {
       const direction = stop.sequence <= 32 ? "south" : "north";
       const eta = TransitEngine.trolleyWait(state.vehicles, stop, direction, new Date());
@@ -206,6 +214,41 @@ function paintStops() {
     });
     return marker;
   });
+  paintBusStops();
+  renderStopLayer();
+}
+
+function busStopPopup(stop) {
+  const content = document.createElement("div");
+  const title = document.createElement("p"); title.className = "popup-title"; title.textContent = stop.name;
+  const meta = document.createElement("p"); meta.className = "popup-meta"; meta.textContent = `Metrobus ${stop.route} · ${stop.direction}bound`;
+  const live = state.buses.find((bus) => String(bus.route) === stop.route && String(bus.stop) === stop.id);
+  const times = document.createElement("p"); times.className = "popup-times"; times.textContent = live?.minutes?.length ? `Next bus: ${live.minutes.slice(0, 2).join(" min, ")} min` : "Schedule estimate used for planning";
+  const actions = document.createElement("div"); actions.className = "popup-actions";
+  [["from", "Use as start"], ["to", "Use as destination"]].forEach(([role, label]) => {
+    const button = document.createElement("button"); button.type = "button"; button.textContent = label;
+    button.addEventListener("click", () => { setEndpoint(role, `bus:${stop.route}:${stop.direction}:${stop.id}`); setPickRole(null); state.map.closePopup(); updatePickHint(`${label}: Metrobus ${stop.route} · ${stop.name}`); });
+    actions.appendChild(button);
+  });
+  content.append(title, meta, times, actions);
+  return content;
+}
+
+function paintBusStops() {
+  state.busStopMarkers.forEach(({ marker }) => marker.remove());
+  state.busStopMarkers = BUS_STOPS.map((stop) => {
+    const marker = L.marker([stop.lat, stop.lng], { icon: L.divIcon({ className: "", html: `<div class="bus-stop-marker route-${stop.route}">${stop.route}</div>`, iconSize: [34, 34], iconAnchor: [17, 17] }), zIndexOffset: -80 });
+    marker.on("click", () => marker.bindPopup(busStopPopup(stop)).openPopup());
+    return { marker, stop };
+  });
+}
+
+function renderStopLayer() {
+  const showTrolley = state.stopLayer === "all" || state.stopLayer === "trolley";
+  state.stopMarkers.forEach((marker) => showTrolley ? marker.addTo(state.map) : marker.remove());
+  state.busStopMarkers.forEach(({ marker, stop }) => (state.stopLayer === "all" || state.stopLayer === stop.route) ? marker.addTo(state.map) : marker.remove());
+  const visible = (showTrolley ? state.stopMarkers.length : 0) + state.busStopMarkers.filter(({ stop }) => state.stopLayer === "all" || state.stopLayer === stop.route).length;
+  ui.visibleStopCount.textContent = `${visible} stops`;
 }
 
 function trolleyIcon(name) {
@@ -280,6 +323,8 @@ async function refreshVehicles() {
 
 async function start() {
   initMap();
+  paintBusStops();
+  renderStopLayer();
   try { await loadRoute(); }
   catch (error) { ui.error.textContent = error.message; ui.error.hidden = false; }
   await refreshVehicles();
@@ -314,9 +359,15 @@ document.querySelectorAll("[data-trip]").forEach((button) => button.addEventList
   refreshEndpointCards(); renderPlan();
 }));
 document.querySelectorAll("[data-pick-role]").forEach((button) => button.addEventListener("click", () => setPickRole(button.dataset.pickRole)));
+document.querySelectorAll("[data-stop-layer]").forEach((button) => button.addEventListener("click", () => {
+  state.stopLayer = button.dataset.stopLayer;
+  document.querySelectorAll("[data-stop-layer]").forEach((item) => { const active = item === button; item.classList.toggle("active", active); item.setAttribute("aria-pressed", String(active)); });
+  renderStopLayer();
+}));
 const savedFrom = localStorage.getItem("transit.from"), savedTo = localStorage.getItem("transit.to");
-state.from = savedFrom && (savedFrom.startsWith("place:") ? TransitEngine.PLACES[savedFrom.slice(6)] : savedFrom.startsWith("stop:")) ? savedFrom : state.from;
-state.to = savedTo && (savedTo.startsWith("place:") ? TransitEngine.PLACES[savedTo.slice(6)] : savedTo.startsWith("stop:")) ? savedTo : state.to;
+const validSaved = (value) => value && (value.startsWith("place:") ? TransitEngine.PLACES[value.slice(6)] : value.startsWith("stop:") || (value.startsWith("bus:") && BUS_STOPS.some((stop) => value === `bus:${stop.route}:${stop.direction}:${stop.id}`)));
+state.from = validSaved(savedFrom) ? savedFrom : state.from;
+state.to = validSaved(savedTo) ? savedTo : state.to;
 document.body.dataset.view = "board";
 refreshEndpointCards();
 updatePickHint();
