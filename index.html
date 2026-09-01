@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="vendor/leaflet.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body>
+  <body data-view="board">
     <main class="app-shell">
       <header class="topbar">
         <div>
@@ -20,7 +20,26 @@
         </div>
       </header>
 
-      <section class="planner" aria-labelledby="plannerTitle">
+      <nav class="prototype-switch" aria-label="Interface prototypes" role="tablist">
+        <span>TEST VIEWS</span>
+        <button class="active" id="boardTab" type="button" role="tab" data-view-tab="board" aria-selected="true" aria-controls="boardPlanner">Board</button>
+        <button id="timelineTab" type="button" role="tab" data-view-tab="timeline" aria-selected="false" aria-controls="timelineControls">Stop timeline</button>
+      </nav>
+
+      <section class="timeline-controls" id="timelineControls" data-prototype="timeline" role="tabpanel" aria-labelledby="timelineTab">
+        <div class="timeline-heading">
+          <div><p>PROTOTYPE 2</p><h2>Pick along Biscayne</h2></div>
+          <span>Scroll-linked map</span>
+        </div>
+        <p class="timeline-intro">Choose From or To, then scroll the route. The map follows the highlighted location.</p>
+        <div class="station-picker timeline-station-picker">
+          <button class="endpoint-card active" type="button" data-timeline-role="from" aria-label="Choose starting location from timeline"><span>FROM</span><strong id="timelineFromLabel">Whole Foods</strong><small id="timelineFromDetail">Edgewater</small></button>
+          <button class="swap-button" id="timelineSwapButton" type="button" aria-label="Swap starting place and destination">⇅</button>
+          <button class="endpoint-card" type="button" data-timeline-role="to" aria-label="Choose destination from timeline"><span>TO</span><strong id="timelineToLabel">Downtown</strong><small id="timelineToDetail">Bayfront</small></button>
+        </div>
+      </section>
+
+      <section class="planner" id="boardPlanner" data-prototype="board" role="tabpanel" aria-labelledby="boardTab">
         <h2 id="plannerTitle">Where are you going?</h2>
         <div class="quick-trips" aria-label="Common destinations">
           <button type="button" data-trip="downtown">Downtown</button>
@@ -56,7 +75,7 @@
         </section>
       </section>
 
-      <section class="stop-toolbar" aria-labelledby="stopsTitle">
+      <section class="stop-toolbar" data-prototype="board" aria-labelledby="stopsTitle">
         <div><h2 id="stopsTitle">Edgewater–Downtown stops</h2><span id="visibleStopCount"></span></div>
         <div class="stop-filters" role="group" aria-label="Filter stops by service">
           <button class="active" type="button" data-stop-layer="all" aria-pressed="true">All</button>
@@ -75,6 +94,15 @@
           <span class="spinner"></span>
           Finding trolleys…
         </div>
+      </section>
+
+      <section class="timeline-picker" data-prototype="timeline" aria-labelledby="timelineTitle">
+        <header>
+          <div><p>NORTH · EDGEWATER</p><h2 id="timelineTitle">Biscayne stop timeline</h2></div>
+          <span>SOUTH ↓</span>
+        </header>
+        <div class="timeline-list" id="timelineList" role="listbox" aria-label="Combined transit locations" tabindex="0"></div>
+        <button class="timeline-confirm" id="timelineConfirm" type="button" disabled>Choose a location</button>
       </section>
 
       <section class="status-sheet" aria-live="polite">
@@ -97,6 +125,7 @@
 
     <script src="vendor/leaflet.js"></script>
     <script src="bus-stops.js"></script>
+    <script src="trolley-stops.js"></script>
     <script src="engine.js"></script>
     <script src="app.js"></script>
   </body>

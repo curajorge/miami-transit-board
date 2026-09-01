@@ -1,6 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { normalizeStops, busStopsForCorridor, planTrip } = require("./engine");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const { normalizeStops, busStopsForCorridor, mergeTransitLocations, planTrip } = require("./engine");
 const NOW = new Date("2026-08-31T18:00:00-04:00");
 const stops = [
   { ID:"920851", Name:"NE 29 St (SB)", StopNumber:"6 - NE 29 St (SB)", Latitude:"25.804565", Longitude:"-80.193634" },
@@ -21,6 +23,12 @@ const busStops = [
   {route:"9",direction:"north",id:"9-edgewater-north",name:"NE 2 Ave & NE 29 St",lat:25.804445,lng:-80.191184,sequence:25},
 ];
 test("normalizes official stop sequence", () => assert.equal(normalizeStops(stops)[0].sequence, 6));
+test("bundles every Biscayne trolley stop for tracker outages", () => {
+  const context = { window: {} };
+  vm.runInNewContext(fs.readFileSync("trolley-stops.js", "utf8"), context);
+  assert.equal(context.window.MiamiTrolleyStops.routeId, "71276");
+  assert.equal(context.window.MiamiTrolleyStops.stops.length, 60);
+});
 test("rejects malformed stop coordinates", () => assert.equal(normalizeStops([{ID:"bad",Name:"Bad",StopNumber:"1 - Bad",Latitude:"25.8",Longitude:"not-a-number"}]).length,0));
 test("limits each bus direction to the Edgewater-Downtown corridor", () => {
   const routeGroups = {
@@ -35,6 +43,16 @@ test("limits each bus direction to the Edgewater-Downtown corridor", () => {
   assert.deepEqual(busStopsForCorridor(routeGroups).map((stop) => stop.id), ["edgewater", "midtown", "downtown"]);
   assert.deepEqual(busStopsForCorridor(routeGroups).map(({ route, direction }) => [route, direction]), [["3", "south"], ["3", "south"], ["3", "south"]]);
 });
+test("merges services at the same physical stop without merging the next block", () => {
+  const trolley = [{id:"t1",name:"NE 15 St",lat:25.7900,lng:-80.1900,sequence:10}];
+  const buses = [
+    {route:"3",direction:"south",id:"b1",name:"NE 15 St",lat:25.7901,lng:-80.1901,sequence:20},
+    {route:"9",direction:"south",id:"b2",name:"NE 17 St",lat:25.7920,lng:-80.1900,sequence:21},
+  ];
+  const locations = mergeTransitLocations(trolley, buses);
+  assert.equal(locations.length, 2);
+  assert.deepEqual(new Set(locations.find((location) => location.members.length === 2).services), new Set(["trolley", "bus-3"]));
+});
 test("southbound shortcut resolves exact stops", () => { const p=planTrip({from:"place:home",to:"place:brickell",stops,now:NOW}); assert.equal(p.direction,"south"); assert.equal(p.boarding.id,"920851"); assert.equal(p.alighting.id,"920876"); });
 test("return trip resolves northbound stops", () => { const p=planTrip({from:"place:brickell",to:"place:home",stops,now:NOW}); assert.equal(p.direction,"north"); assert.equal(p.boarding.id,"921010"); assert.equal(p.alighting.id,"921033"); });
 test("arrive-by subtracts total duration", () => { const d=new Date("2026-08-31T19:00:00-04:00"),p=planTrip({from:"place:home",to:"place:downtown",stops,mode:"arrive",arriveBy:d,now:NOW}); assert.equal(Math.round((d-p.leaveAt)/60000),p.best.total); });
@@ -45,3 +63,4 @@ test("compares live Routes 3 and 9 for Home to Downtown", () => { const p=planTr
 test("preserves a selected Metrobus route and stop", () => { const p=planTrip({from:"bus:3:south:6706",to:"bus:3:south:3-downtown",stops,busStops,buses:[{route:"3",stop:"6706",minutes:[6]}],now:NOW}); assert.equal(p.options.some((o)=>o.id==="bus-3"),true); assert.equal(p.options.find((o)=>o.id==="bus-3").boarding,"Biscayne Blvd & NE 29 St"); });
 test("bus stop planning still works when trolley tracker stops are unavailable", () => { const p=planTrip({from:"bus:3:south:6706",to:"bus:3:south:3-downtown",stops:[],busStops,buses:[{route:"3",stop:"6706",minutes:[6]}],now:NOW}); assert.deepEqual(p.options.map((o)=>o.id),["bus-3"]); });
 test("Downtown return still compares northbound buses when the trolley tracker is unavailable", () => { const p=planTrip({from:"place:downtown",to:"place:home",stops:[],busStops,buses:[{route:"9",stop:"9-downtown-north",minutes:[4]}],now:NOW}); assert.deepEqual(new Set(p.options.map((o)=>o.id)),new Set(["bus-3","bus-9"])); assert.equal(p.direction,"north"); assert.equal(p.best.id,"bus-9"); });
+test("timeline locations compare trolley and nearby bus services", () => { const locations=[{id:"edgewater",name:"Edgewater",lat:25.8043,lng:-80.1917},{id:"downtown",name:"Downtown",lat:25.7732,lng:-80.1875}]; const p=planTrip({from:"location:edgewater",to:"location:downtown",locations,stops,busStops,now:NOW}); assert.deepEqual(new Set(p.options.map((o)=>o.id)),new Set(["trolley","bus-3","bus-9"])); assert.equal(p.direction,"south"); });

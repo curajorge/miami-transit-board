@@ -3,8 +3,9 @@ const API_BASE = "/api/tracker";
 const REFRESH_MS = 30_000;
 const BISCAYNE_CENTER = [25.7867, -80.1948];
 const BUS_STOPS = TransitEngine.busStopsForCorridor(window.MiamiBusStops?.routes);
+const FALLBACK_TROLLEY_STOPS = window.MiamiTrolleyStops?.stops || [];
 
-const state = { map: null, routeLayer: null, markers: new Map(), stopMarkers: [], busStopMarkers: [], stopLayer: "all", userMarker: null, refreshing: false, vehicles: [], buses: [], stops: [], from: "place:home", to: "place:downtown", mode: "now", pickRole: null };
+const state = { map: null, routeLayer: null, markers: new Map(), stopMarkers: [], busStopMarkers: [], locationMarkers: [], stopLayer: "all", userMarker: null, refreshing: false, vehicles: [], buses: [], stops: FALLBACK_TROLLEY_STOPS, locations: [], from: "place:home", to: "place:downtown", mode: "now", view: "board", pickRole: null, timelineRole: "to", timelineActiveId: null, timelineScrollFrame: null };
 const ui = {
   count: document.querySelector("#trolleyCount"),
   label: document.querySelector("#statusLabel"),
@@ -30,7 +31,17 @@ const ui = {
   toLabel: document.querySelector("#toLabel"),
   toDetail: document.querySelector("#toDetail"),
   visibleStopCount: document.querySelector("#visibleStopCount"),
+  timelineFromLabel: document.querySelector("#timelineFromLabel"),
+  timelineFromDetail: document.querySelector("#timelineFromDetail"),
+  timelineToLabel: document.querySelector("#timelineToLabel"),
+  timelineToDetail: document.querySelector("#timelineToDetail"),
+  timelineList: document.querySelector("#timelineList"),
+  timelineConfirm: document.querySelector("#timelineConfirm"),
+  timelineSwap: document.querySelector("#timelineSwapButton"),
 };
+
+const serviceName = (service) => service === "trolley" ? "Trolley" : service === "bus-3" ? "Bus 3" : "Bus 9";
+const locationServices = (location) => location ? location.services.map(serviceName).join(" · ") || "Saved place" : "Scroll to choose";
 
 function endpointText(value) {
   if (value.startsWith("place:")) {
@@ -42,6 +53,10 @@ function endpointText(value) {
     const stop = BUS_STOPS.find((item) => item.route === route && item.direction === direction && item.id === id);
     return { name: stop?.name || "Choose a bus stop", detail: `Metrobus ${route} · ${direction}bound` };
   }
+  if (value.startsWith("location:")) {
+    const location = state.locations.find((item) => item.id === value.slice(9));
+    return { name: location?.name || "Choose a location", detail: locationServices(location) };
+  }
   const stop = TransitEngine.normalizeStops(state.stops).find((item) => item.id === value.replace("stop:", ""));
   return { name: stop?.name || "Choose on map", detail: stop ? `Biscayne stop ${stop.sequence}` : "Tap a transit stop" };
 }
@@ -50,12 +65,22 @@ function refreshEndpointCards() {
   const from = endpointText(state.from), to = endpointText(state.to);
   ui.fromLabel.textContent = from.name; ui.fromDetail.textContent = from.detail;
   ui.toLabel.textContent = to.name; ui.toDetail.textContent = to.detail;
+  ui.timelineFromLabel.textContent = from.name; ui.timelineFromDetail.textContent = from.detail;
+  ui.timelineToLabel.textContent = to.name; ui.timelineToDetail.textContent = to.detail;
+}
+
+function persistTrip() {
+  if (state.from.startsWith("location:") || state.to.startsWith("location:")) {
+    localStorage.removeItem("transit.from"); localStorage.removeItem("transit.to");
+  } else {
+    localStorage.setItem("transit.from", state.from); localStorage.setItem("transit.to", state.to);
+  }
 }
 
 function setEndpoint(role, endpointValue) {
   const value = endpointValue.includes(":") ? endpointValue : `stop:${endpointValue}`;
   state[role] = value;
-  localStorage.setItem(`transit.${role}`, value);
+  persistTrip();
   refreshEndpointCards();
   renderPlan();
 }
@@ -85,7 +110,7 @@ function setPickRole(role) {
 }
 
 function updatePickHint(message) {
-  ui.pickHint.textContent = message || "Tap any stop for arrivals or trip selection";
+  ui.pickHint.textContent = message || (state.view === "timeline" ? "Scroll the timeline — the map follows" : "Tap any stop for arrivals or trip selection");
 }
 
 const clock = (date) => new Intl.DateTimeFormat([], { hour: "numeric", minute: "2-digit" }).format(date);
@@ -99,7 +124,7 @@ function renderPlan() {
     arriveBy.setHours(hours, minutes, 0, 0);
     if (arriveBy < now) arriveBy.setDate(arriveBy.getDate() + 1);
   }
-  const plan = TransitEngine.planTrip({ from: state.from, to: state.to, stops: state.stops, busStops: BUS_STOPS, mode: state.mode, arriveBy: arriveBy?.toISOString(), vehicles: state.vehicles, buses: state.buses, now });
+  const plan = TransitEngine.planTrip({ from: state.from, to: state.to, stops: state.stops, busStops: BUS_STOPS, locations: state.locations, mode: state.mode, arriveBy: arriveBy?.toISOString(), vehicles: state.vehicles, buses: state.buses, now });
   if (!plan) {
     ui.decisionKicker.textContent = "Choose stops in the same direction";
     ui.decisionTime.textContent = "—";
@@ -151,6 +176,148 @@ async function busRequest(route, direction) {
   return data;
 }
 
+function friendlyStopName(value) {
+  return String(value || "Transit stop").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase())
+    .replace(/\b(Ne|Nw|Se|Sw|Sb|Nb)\b/g, (word) => word.toUpperCase())
+    .replace(/\bBd\b/g, "Blvd").replace(/\bAv\b/g, "Ave");
+}
+
+function locationDirection(location) {
+  const directions = [...new Set(location.members.map((member) => member.direction).filter(Boolean))];
+  if (directions.length > 1) return "Both directions";
+  return directions[0] ? `${directions[0][0].toUpperCase()}${directions[0].slice(1)}bound` : "Saved place";
+}
+
+function locationBadges(location) {
+  const badges = [];
+  if (location.placeKeys.length) badges.push({ type: "place", label: "★" });
+  location.services.forEach((service) => badges.push({ type: service, label: service === "trolley" ? "T" : service.slice(4) }));
+  return badges;
+}
+
+function timelineLocationForEndpoint(value) {
+  if (value.startsWith("place:")) return state.locations.find((location) => location.placeKeys.includes(value.slice(6)));
+  if (value.startsWith("location:")) return state.locations.find((location) => location.id === value.slice(9));
+  return state.locations.find((location) => location.members.some((member) => member.endpoint === value));
+}
+
+function buildTimelineLocations() {
+  const minLat = TransitEngine.PLACES.brickell.lat - .004, maxLat = TransitEngine.PLACES.home.lat + .004;
+  const trolleyStops = TransitEngine.normalizeStops(state.stops).filter((stop) => stop.lat >= minLat && stop.lat <= maxLat);
+  const previousLocations = state.locations;
+  const previousActive = previousLocations.find((location) => location.id === state.timelineActiveId);
+  const locations = TransitEngine.mergeTransitLocations(trolleyStops, BUS_STOPS).map((location) => ({ ...location, placeKeys: [] }));
+
+  Object.entries(TransitEngine.PLACES).forEach(([key, place]) => {
+    const closest = locations.map((location) => ({ location, distance: TransitEngine.haversineMiles(place, location) })).sort((a, b) => a.distance - b.distance)[0];
+    if (closest && closest.distance <= .2) closest.location.placeKeys.push(key);
+    else locations.push({ id: `place-${key}`, lat: place.lat, lng: place.lng, members: [], services: [], placeKeys: [key] });
+  });
+
+  state.locations = locations.map((location) => {
+    const place = location.placeKeys.length ? TransitEngine.PLACES[location.placeKeys[0]] : null;
+    const namedMember = location.members.find((member) => member.service === "trolley") || location.members[0];
+    return {
+      ...location,
+      name: place?.name || friendlyStopName(namedMember?.name),
+      detail: place ? `${place.detail} · ${locationServices(location)}` : `${locationDirection(location)} · ${locationServices(location)}`,
+    };
+  }).sort((a, b) => b.lat - a.lat || a.lng - b.lng);
+
+  if (previousActive && !state.locations.some((location) => location.id === state.timelineActiveId)) {
+    state.timelineActiveId = state.locations.map((location) => ({ location, distance: TransitEngine.haversineMiles(previousActive, location) })).sort((a, b) => a.distance - b.distance)[0]?.location.id || null;
+  }
+}
+
+function updateTimelineSelection(moveMap = true) {
+  const location = state.locations.find((item) => item.id === state.timelineActiveId);
+  ui.timelineList.querySelectorAll(".timeline-stop").forEach((item) => {
+    const active = item.dataset.locationId === state.timelineActiveId;
+    item.classList.toggle("active", active);
+    item.setAttribute("aria-selected", String(active));
+  });
+  state.locationMarkers.forEach(({ marker, location: item }) => marker.getElement()?.classList.toggle("active", item.id === state.timelineActiveId));
+  ui.timelineConfirm.disabled = !location;
+  ui.timelineConfirm.textContent = location ? `Use ${location.name} as ${state.timelineRole === "from" ? "From" : "To"}` : "Choose a location";
+  if (location && moveMap && state.map) state.map.panTo([location.lat, location.lng], { animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches, duration: .25 });
+}
+
+function selectTimelineLocation(id, { moveMap = true, scroll = false } = {}) {
+  if (!state.locations.some((location) => location.id === id)) return;
+  state.timelineActiveId = id;
+  updateTimelineSelection(moveMap);
+  if (scroll) {
+    const item = ui.timelineList.querySelector(`[data-location-id="${CSS.escape(id)}"]`);
+    if (item) ui.timelineList.scrollTo({ top: item.offsetTop - (ui.timelineList.clientHeight - item.offsetHeight) / 2, behavior: "auto" });
+  }
+}
+
+function renderTimelineList() {
+  ui.timelineList.replaceChildren();
+  state.locations.forEach((location) => {
+    const button = document.createElement("button");
+    button.type = "button"; button.className = "timeline-stop"; button.dataset.locationId = location.id;
+    button.setAttribute("role", "option"); button.setAttribute("aria-selected", "false");
+    const node = document.createElement("span"); node.className = "timeline-node"; node.setAttribute("aria-hidden", "true");
+    const copy = document.createElement("span"); copy.className = "timeline-copy";
+    const name = document.createElement("strong"); name.textContent = location.name;
+    const detail = document.createElement("small"); detail.textContent = location.detail;
+    copy.append(name, detail);
+    const services = document.createElement("span"); services.className = "service-stack";
+    locationBadges(location).forEach((badge) => { const item = document.createElement("span"); item.className = `service-badge ${badge.type}`; item.textContent = badge.label; services.appendChild(item); });
+    button.append(node, copy, services);
+    button.addEventListener("click", () => selectTimelineLocation(location.id, { scroll: true }));
+    ui.timelineList.appendChild(button);
+  });
+  const current = timelineLocationForEndpoint(state[state.timelineRole]) || state.locations[0];
+  if (current) selectTimelineLocation(current.id, { moveMap: false, scroll: true });
+}
+
+function paintCombinedLocations() {
+  state.locationMarkers.forEach(({ marker }) => marker.remove());
+  state.locationMarkers = state.locations.map((location) => {
+    const badges = locationBadges(location);
+    const html = `<div class="combined-stop-marker">${badges.map((badge) => `<span class="${badge.type}">${badge.label}</span>`).join("")}</div>`;
+    const width = Math.max(34, badges.length * 19 + 10);
+    const marker = L.marker([location.lat, location.lng], { icon: L.divIcon({ className: "combined-location-icon", html, iconSize: [width, 34], iconAnchor: [width / 2, 17] }), zIndexOffset: -60 });
+    marker.on("click", () => selectTimelineLocation(location.id, { scroll: true }));
+    return { marker, location };
+  });
+}
+
+function rebuildTimelineLocations() {
+  buildTimelineLocations();
+  renderTimelineList();
+  paintCombinedLocations();
+}
+
+function setTimelineRole(role) {
+  state.timelineRole = role;
+  document.querySelectorAll("[data-timeline-role]").forEach((button) => button.classList.toggle("active", button.dataset.timelineRole === role));
+  const current = timelineLocationForEndpoint(state[role]);
+  if (current) selectTimelineLocation(current.id, { scroll: true });
+  else updateTimelineSelection(false);
+}
+
+function setView(view) {
+  state.view = view === "timeline" ? "timeline" : "board";
+  document.body.dataset.view = state.view;
+  localStorage.setItem("transit.view", state.view);
+  document.querySelectorAll("[data-view-tab]").forEach((button) => {
+    const active = button.dataset.viewTab === state.view;
+    button.classList.toggle("active", active); button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
+  });
+  updatePickHint();
+  renderStopLayer();
+  window.requestAnimationFrame(() => {
+    state.map?.invalidateSize();
+    if (state.view === "timeline") {
+      if (state.map && state.map.getZoom() < 16) state.map.setZoom(16);
+      setTimelineRole(state.timelineRole);
+    } else if (state.routeLayer) state.map.fitBounds(state.routeLayer.getBounds(), { padding: [24, 24] });
+  });
+}
+
 function decodePolyline(encoded) {
   if (typeof encoded !== "string" || encoded.length > 500_000) throw new Error("Route geometry is invalid.");
   const points = [];
@@ -181,12 +348,13 @@ async function loadRoute() {
   const data = await trackerRequest({ Key: "ROUTES_BYTKN", id: "-1", f1: "81E39EC9-D773-447E-BE29-D7F30AB177BC", f2: "", f3: "", lan: "en" });
   const routes = Array.isArray(data?.[0]) ? data[0] : [];
   const route = routes.find((item) => String(item.ID) === ROUTE_ID);
-  state.stops = Array.isArray(data?.[1]) ? data[1].filter((item) => String(item.RouteID) === ROUTE_ID) : [];
+  const liveStops = Array.isArray(data?.[1]) ? data[1].filter((item) => String(item.RouteID) === ROUTE_ID) : [];
+  if (liveStops.length) state.stops = liveStops;
   if (!route?.RoutePath) throw new Error("Biscayne route geometry is unavailable.");
   const points = decodePolyline(route.RoutePath);
   if (!points.length || points.some(([lat, lng]) => !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180)) throw new Error("Biscayne route geometry is invalid.");
   state.routeLayer = L.polyline(points, { color: "#2363c3", weight: 6, opacity: .9, lineCap: "round" }).addTo(state.map);
-  state.map.fitBounds(state.routeLayer.getBounds(), { padding: [24, 24] });
+  if (state.view === "board") state.map.fitBounds(state.routeLayer.getBounds(), { padding: [24, 24] });
   populateStations();
   paintStops();
 }
@@ -227,6 +395,7 @@ function paintStops() {
     return marker;
   });
   paintBusStops();
+  rebuildTimelineLocations();
   renderStopLayer();
 }
 
@@ -256,6 +425,14 @@ function paintBusStops() {
 }
 
 function renderStopLayer() {
+  const showTimeline = state.view === "timeline";
+  state.locationMarkers.forEach(({ marker }) => showTimeline ? marker.addTo(state.map) : marker.remove());
+  if (showTimeline) {
+    state.stopMarkers.forEach((marker) => marker.remove());
+    state.busStopMarkers.forEach(({ marker }) => marker.remove());
+    updateTimelineSelection(false);
+    return;
+  }
   const showTrolley = state.stopLayer === "all" || state.stopLayer === "trolley";
   state.stopMarkers.forEach((marker) => showTrolley ? marker.addTo(state.map) : marker.remove());
   state.busStopMarkers.forEach(({ marker, stop }) => (state.stopLayer === "all" || state.stopLayer === stop.route) ? marker.addTo(state.map) : marker.remove());
@@ -328,10 +505,11 @@ async function refreshVehicles() {
     const busNote = state.buses.length ? ` · ${state.buses.length} bus arrival points checked` : " · bus arrivals unavailable";
     ui.updated.textContent = newest ? `Newest trolley updated ${formatAge(newest)}${busNote} · refreshes every 30 sec` : `No active trolley positions reported${busNote}`;
   } catch (error) {
+    const message = error.message.endsWith(".") ? error.message : `${error.message}.`;
     ui.status.className = "status-label error";
     ui.label.textContent = "Tracker unavailable";
     ui.updated.textContent = state.buses.length ? `${state.buses.length} bus arrival points checked · showing last trolley positions` : "Showing the last positions received";
-    ui.error.textContent = `${error.message} Tap Refresh to try again.`;
+    ui.error.textContent = `${message} ${state.stops.length ? "Saved Biscayne stops remain available. " : ""}Tap Refresh to try again.`;
     ui.error.hidden = false;
   } finally {
     state.refreshing = false;
@@ -342,21 +520,24 @@ async function refreshVehicles() {
 
 async function start() {
   initMap();
-  paintBusStops();
-  renderStopLayer();
+  paintStops();
   try { await loadRoute(); }
-  catch (error) { ui.error.textContent = error.message; ui.error.hidden = false; }
+  catch (error) { ui.error.textContent = `${error.message} Using saved Biscayne stop locations.`; ui.error.hidden = false; }
   await refreshVehicles();
   window.setInterval(refreshVehicles, REFRESH_MS);
 }
 
-ui.refresh.addEventListener("click", refreshVehicles);
-ui.swap.addEventListener("click", () => {
+function swapTrip() {
   [state.from, state.to] = [reverseEndpoint(state.to), reverseEndpoint(state.from)];
-  localStorage.setItem("transit.from", state.from); localStorage.setItem("transit.to", state.to);
+  persistTrip();
   refreshEndpointCards();
   renderPlan();
-});
+  if (state.view === "timeline") setTimelineRole(state.timelineRole);
+}
+
+ui.refresh.addEventListener("click", refreshVehicles);
+ui.swap.addEventListener("click", swapTrip);
+ui.timelineSwap.addEventListener("click", swapTrip);
 document.querySelectorAll(".time-mode").forEach((button) => button.addEventListener("click", () => {
   document.querySelectorAll(".time-mode").forEach((item) => item.classList.toggle("active", item === button));
   state.mode = button.dataset.mode;
@@ -371,10 +552,35 @@ document.querySelectorAll("[data-trip]").forEach((button) => button.addEventList
     state.from = reverseEndpoint(away); state.to = "place:home";
   }
   else { state.from = "place:home"; state.to = `place:${trip}`; }
-  localStorage.setItem("transit.from", state.from); localStorage.setItem("transit.to", state.to);
+  persistTrip();
   refreshEndpointCards(); renderPlan();
 }));
 document.querySelectorAll("[data-pick-role]").forEach((button) => button.addEventListener("click", () => setPickRole(button.dataset.pickRole)));
+document.querySelectorAll("[data-timeline-role]").forEach((button) => button.addEventListener("click", () => {
+  setTimelineRole(button.dataset.timelineRole);
+  updatePickHint(`Scroll to preview, then set your ${button.dataset.timelineRole === "from" ? "starting point" : "destination"}`);
+}));
+document.querySelectorAll("[data-view-tab]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.viewTab)));
+ui.timelineConfirm.addEventListener("click", () => {
+  const location = state.locations.find((item) => item.id === state.timelineActiveId);
+  if (!location) return;
+  const role = state.timelineRole;
+  const endpointValue = location.placeKeys.length ? `place:${location.placeKeys[0]}` : `location:${location.id}`;
+  setEndpoint(role, endpointValue);
+  updatePickHint(`${location.name} set as ${role === "from" ? "your starting point" : "your destination"}`);
+  if (role === "from") setTimelineRole("to");
+});
+ui.timelineList.addEventListener("scroll", () => {
+  if (state.timelineScrollFrame) return;
+  state.timelineScrollFrame = window.requestAnimationFrame(() => {
+    state.timelineScrollFrame = null;
+    const center = ui.timelineList.scrollTop + ui.timelineList.clientHeight / 2;
+    const closest = [...ui.timelineList.querySelectorAll(".timeline-stop")]
+      .map((item) => ({ item, distance: Math.abs(item.offsetTop + item.offsetHeight / 2 - center) }))
+      .sort((a, b) => a.distance - b.distance)[0]?.item;
+    if (closest && closest.dataset.locationId !== state.timelineActiveId) selectTimelineLocation(closest.dataset.locationId);
+  });
+}, { passive: true });
 document.querySelectorAll("[data-stop-layer]").forEach((button) => button.addEventListener("click", () => {
   state.stopLayer = button.dataset.stopLayer;
   document.querySelectorAll("[data-stop-layer]").forEach((item) => { const active = item === button; item.classList.toggle("active", active); item.setAttribute("aria-pressed", String(active)); });
@@ -384,7 +590,7 @@ const savedFrom = localStorage.getItem("transit.from"), savedTo = localStorage.g
 const validSaved = (value) => value && (value.startsWith("place:") ? TransitEngine.PLACES[value.slice(6)] : value.startsWith("stop:") || (value.startsWith("bus:") && BUS_STOPS.some((stop) => value === `bus:${stop.route}:${stop.direction}:${stop.id}`)));
 state.from = validSaved(savedFrom) ? savedFrom : state.from;
 state.to = validSaved(savedTo) ? savedTo : state.to;
-document.body.dataset.view = "board";
 refreshEndpointCards();
 updatePickHint();
+setView(localStorage.getItem("transit.view") === "timeline" ? "timeline" : "board");
 start();

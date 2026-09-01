@@ -27,9 +27,14 @@
     const [, route, direction, id] = value.split(":");
     return busStops.find((stop) => stop.route === route && stop.direction === direction && stop.id === id) || null;
   }
-  function basePoint(value, stops, busStops = []) {
+  function locationPoint(value, locations) {
+    if (!value.startsWith("location:")) return null;
+    return locations.find((location) => location.id === value.slice(9)) || null;
+  }
+  function basePoint(value, stops, busStops = [], locations = []) {
     if (value.startsWith("place:")) return PLACES[value.slice(6)];
     if (value.startsWith("bus:")) return busPoint(value, busStops);
+    if (value.startsWith("location:")) return locationPoint(value, locations);
     return stops.find((item) => item.id === value.replace("stop:", ""));
   }
   function nearestStop(point, stops) {
@@ -45,7 +50,30 @@
       return stops.filter((stop) => stop.sequence >= low && stop.sequence <= high).map((stop) => ({ ...stop, route: String(group.route), direction: String(group.direction) }));
     });
   }
-  function endpoint(value, stops, direction, busStops = []) {
+  function mergeTransitLocations(trolleyStops = [], busStops = [], maxDistanceMiles = .04) {
+    const trolleyMembers = trolleyStops.map((stop) => ({ ...stop, service: "trolley", route: "trolley", direction: stop.sequence <= 32 ? "south" : "north", endpoint: `stop:${stop.id}` }));
+    const busMembers = busStops.map((stop) => ({ ...stop, service: `bus-${stop.route}`, endpoint: `bus:${stop.route}:${stop.direction}:${stop.id}` }));
+    const members = [...trolleyMembers, ...busMembers]
+      .filter((stop) => stop.id && Number.isFinite(stop.lat) && Number.isFinite(stop.lng))
+      .sort((a, b) => b.lat - a.lat || a.lng - b.lng || a.endpoint.localeCompare(b.endpoint));
+    const groups = [];
+    members.forEach((member) => {
+      const closest = groups.map((group) => ({ group, distance: haversineMiles(member, group) }))
+        .sort((a, b) => a.distance - b.distance)[0];
+      if (!closest || closest.distance > maxDistanceMiles) groups.push({ lat: member.lat, lng: member.lng, members: [member] });
+      else {
+        closest.group.members.push(member);
+        closest.group.lat = closest.group.members.reduce((sum, stop) => sum + stop.lat, 0) / closest.group.members.length;
+        closest.group.lng = closest.group.members.reduce((sum, stop) => sum + stop.lng, 0) / closest.group.members.length;
+      }
+    });
+    return groups.map((group) => ({
+      ...group,
+      id: group.members.map((member) => member.endpoint).sort()[0].replace(/[^a-z0-9-]/gi, "-"),
+      services: [...new Set(group.members.map((member) => member.service))],
+    })).sort((a, b) => b.lat - a.lat || a.lng - b.lng);
+  }
+  function endpoint(value, stops, direction, busStops = [], locations = []) {
     if (value.startsWith("place:")) {
       const key = value.slice(6), place = PLACES[key], stop = stops.find((item) => item.id === place[direction]);
       return { ...place, key, value, stop, displayName: place.name };
@@ -53,6 +81,10 @@
     if (value.startsWith("bus:")) {
       const selected = busPoint(value, busStops), stop = nearestStop(selected, stops.filter((item) => stopDirection(item) === direction));
       return { ...selected, stop, value, displayName: selected?.name || "Selected bus stop" };
+    }
+    if (value.startsWith("location:")) {
+      const selected = locationPoint(value, locations), stop = selected && nearestStop(selected, stops.filter((item) => stopDirection(item) === direction));
+      return { ...selected, stop, value, displayName: selected?.name || "Selected location" };
     }
     const stop = stops.find((item) => item.id === value.replace("stop:", ""));
     return { name: stop?.name || "Selected stop", detail: stop?.label || "", lat: stop?.lat, lng: stop?.lng, stop, value, displayName: stop?.name || "Selected stop" };
@@ -69,15 +101,15 @@
     const closest = candidates[0];
     return { minutes: Math.max(2, Math.min(25, Math.round(closest.distance / 11 * 60))), source: "live", vehicle: closest.vehicle.ShortName || closest.vehicle.ID, confidence: closest.distance < 1.5 ? "Good" : "Fair" };
   }
-  function planTrip({ from = "place:home", to = "place:downtown", stops = [], busStops = [], mode = "now", arriveBy, vehicles = [], buses = [], now = new Date() }) {
-    const normalized = normalizeStops(stops), fromPoint = basePoint(from, normalized, busStops), toPoint = basePoint(to, normalized, busStops);
+  function planTrip({ from = "place:home", to = "place:downtown", stops = [], busStops = [], locations = [], mode = "now", arriveBy, vehicles = [], buses = [], now = new Date() }) {
+    const normalized = normalizeStops(stops), fromPoint = basePoint(from, normalized, busStops, locations), toPoint = basePoint(to, normalized, busStops, locations);
     if (!fromPoint || !toPoint || from === to) return null;
     const fromStop = from.startsWith("stop:") ? fromPoint : null, toStop = to.startsWith("stop:") ? toPoint : null;
     const fromBus = busPoint(from, busStops), toBus = busPoint(to, busStops);
     if (fromStop && toStop && stopDirection(fromStop) !== stopDirection(toStop)) return null;
     if (fromBus && toBus && fromBus.direction !== toBus.direction) return null;
     const direction = fromBus?.direction || toBus?.direction || (fromStop ? stopDirection(fromStop) : toStop ? stopDirection(toStop) : toPoint.lat < fromPoint.lat ? "south" : "north");
-    const origin = endpoint(from, normalized, direction, busStops), destination = endpoint(to, normalized, direction, busStops);
+    const origin = endpoint(from, normalized, direction, busStops, locations), destination = endpoint(to, normalized, direction, busStops, locations);
     let live = null;
     const options = [];
     if (origin.stop && destination.stop) {
@@ -85,7 +117,8 @@
       if (stopCount > 0) {
         const rideMinutes = Math.max(3, Math.round(stopCount * 1.18));
         live = trolleyWait(vehicles, origin.stop, direction, now);
-        const walkToStop = from.startsWith("place:") ? 3 : 1, walkFromStop = to.startsWith("place:") ? 4 : 1;
+        const walkToStop = from.startsWith("place:") ? 3 : from.startsWith("location:") ? Math.max(1, Math.round(haversineMiles(fromPoint, origin.stop) / 3.1 * 60)) : 1;
+        const walkFromStop = to.startsWith("place:") ? 4 : to.startsWith("location:") ? Math.max(1, Math.round(haversineMiles(destination.stop, toPoint) / 3.1 * 60)) : 1;
         const safety = live.source === "live" ? 2 : 4;
         const leaveIn = Math.max(0, live.minutes - walkToStop - safety);
         const tripAfterLeaving = walkToStop + Math.max(safety, live.minutes - leaveIn) + rideMinutes + walkFromStop;
@@ -94,7 +127,8 @@
     }
     const selectedBusRoutes = [...new Set([fromBus?.route, toBus?.route].filter(Boolean))];
     const commonDowntownTrip = (from === "place:home" && to === "place:downtown" && direction === "south") || (from === "place:downtown" && to === "place:home" && direction === "north");
-    const eligibleRoutes = selectedBusRoutes.length ? selectedBusRoutes : (commonDowntownTrip ? ["3", "9"] : []);
+    const timelineTrip = from.startsWith("location:") || to.startsWith("location:");
+    const eligibleRoutes = selectedBusRoutes.length ? selectedBusRoutes : (commonDowntownTrip || timelineTrip ? ["3", "9"] : []);
     if (mode === "now") {
       eligibleRoutes.forEach((route) => {
         const routeStops = busStops.filter((stop) => stop.route === route && stop.direction === direction);
@@ -103,8 +137,8 @@
         if (!busOrigin || !busDestination || busDestination.sequence <= busOrigin.sequence) return;
         const liveBus = buses.find((bus) => String(bus.route) === route && String(bus.stop) === busOrigin.id);
         const liveWait = Number(liveBus?.minutes?.[0]), wait = Number.isFinite(liveWait) ? liveWait : 15;
-        const busWalk = from.startsWith("place:") ? Math.max(2, Math.round(haversineMiles(fromPoint, busOrigin) / 3.1 * 60)) : 1;
-        const walkAfter = to.startsWith("place:") ? Math.max(2, Math.round(haversineMiles(busDestination, toPoint) / 3.1 * 60)) : 1;
+        const busWalk = from.startsWith("place:") || from.startsWith("location:") ? Math.max(2, Math.round(haversineMiles(fromPoint, busOrigin) / 3.1 * 60)) : 1;
+        const walkAfter = to.startsWith("place:") || to.startsWith("location:") ? Math.max(2, Math.round(haversineMiles(busDestination, toPoint) / 3.1 * 60)) : 1;
         const busRide = Math.max(5, Math.round((busDestination.sequence - busOrigin.sequence) * 1.05)), busBuffer = Number.isFinite(liveWait) ? 2 : 4;
         const busLeaveIn = Math.max(0, wait - busWalk - busBuffer);
         options.push({ id: `bus-${route}`, label: `Metrobus ${route}`, wait, ride: busRide, walkToStop: busWalk, walkFromStop: walkAfter, buffer: busBuffer, cost: 2.25, data: Number.isFinite(liveWait) ? "live-bus" : "bus-schedule", confidence: Number.isFinite(liveWait) ? "Good" : "Fair", total: busWalk + Math.max(busBuffer, wait - busLeaveIn) + busRide + walkAfter, arrivalMinutes: wait + busRide + walkAfter, boarding: busOrigin.name, alighting: busDestination.name, leaveIn: busLeaveIn });
@@ -121,5 +155,5 @@
       reason: `${bestReason} Leave time includes a ${best.buffer}-minute boarding cushion.`,
       minutesUntilLeave: Math.max(0, Math.round((leaveAt - now) / 60000)) };
   }
-  return { PLACES, normalizeStops, busStopsForCorridor, haversineMiles, trolleyWait, planTrip };
+  return { PLACES, normalizeStops, busStopsForCorridor, mergeTransitLocations, haversineMiles, trolleyWait, planTrip };
 });

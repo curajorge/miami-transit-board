@@ -5,6 +5,7 @@ Miami Transit Board is an independent project and is not affiliated with or endo
 ## City of Miami trolley
 
 - Biscayne route geometry, stops, and public vehicle positions come from the City of Miami public trolley tracker.
+- A last-known catalog of the route's 60 public stops is bundled as a fallback. Fresh tracker data replaces it whenever the route endpoint is available.
 - Trolley vehicle arrivals are estimates calculated from public positions, heading, distance, and data age. They are not official stop predictions.
 - When no fresh approaching vehicle can be identified, the app labels its fallback as a published-headway estimate.
 
