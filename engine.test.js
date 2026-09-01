@@ -17,3 +17,4 @@ test("arrive-by subtracts total duration", () => { const d=new Date("2026-08-31T
 test("Biscayne-only plan has no bus or walking alternatives", () => { const p=planTrip({from:"place:home",to:"place:downtown",stops,now:NOW}); assert.deepEqual(p.options.map((o)=>o.id),["trolley"]); });
 test("leave-now subtracts walking and safety from trolley wait", () => { const p=planTrip({from:"place:home",to:"place:downtown",stops,now:NOW}); assert.equal(p.minutesUntilLeave,8); });
 test("rejects opposite-direction exact stop pairs", () => assert.equal(planTrip({from:"stop:920851",to:"stop:921016",stops,now:NOW}),null));
+test("compares live Routes 3 and 9 for Home to Downtown", () => { const p=planTrip({from:"place:home",to:"place:downtown",stops,buses:[{route:"3",minutes:[13]},{route:"9",minutes:[2]}],now:NOW}); assert.deepEqual(new Set(p.options.map((o)=>o.id)),new Set(["trolley","bus-3","bus-9"])); assert.equal(p.best.id,"bus-9"); });

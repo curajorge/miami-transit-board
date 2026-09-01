@@ -17,10 +17,13 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MainActivity extends Activity {
     private static final String APP_ORIGIN = "https://app.local/";
     private static final String TRACKER = "https://publictransportation.tsomobile.com/rest/PubTrans/GetModuleInfoPublic";
+    private static final String BUS_TIME = "https://transitbustime.miamidade.gov/bustime/wireless/html/eta.jsp";
     private WebView webView;
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -45,6 +48,7 @@ public class MainActivity extends Activity {
                 URL url = request.getUrl() == null ? null : toUrl(request.getUrl().toString());
                 if (url == null) return error("Invalid request");
                 if (url.getHost().equals("app.local") && url.getPath().equals("/api/tracker")) return trackerResponse(url);
+                if (url.getHost().equals("app.local") && url.getPath().equals("/api/bus")) return busResponse(url);
                 if (url.getHost().equals("app.local")) return assetResponse(url.getPath());
                 return super.shouldInterceptRequest(view, request);
             }
@@ -85,6 +89,36 @@ public class MainActivity extends Activity {
             return jsonResponse(json, 200, "OK");
         } catch (Exception ignored) {
             return error("City tracker unavailable");
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    private WebResourceResponse busResponse(URL localUrl) {
+        HttpURLConnection connection = null;
+        try {
+            String query = localUrl.getQuery() == null ? "" : localUrl.getQuery();
+            Matcher routeMatch = Pattern.compile("(?:^|&)route=(3|9)(?:&|$)").matcher(query);
+            if (!routeMatch.find()) return error("Unsupported bus route");
+            String route = routeMatch.group(1);
+            String stop = route.equals("3") ? "6706" : "6774";
+            URL upstream = new URL(BUS_TIME + "?direction=MetroBus%3ASOUTHBOUND&id=MetroBus%3A" + stop + "&route=MetroBus%3A" + route + "&showAllBusses=off");
+            connection = (HttpURLConnection) upstream.openConnection();
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0 MiamiTransit/0.1");
+            connection.setConnectTimeout(10_000);
+            connection.setReadTimeout(10_000);
+            if (connection.getResponseCode() != 200) return error("Bus arrivals unavailable");
+            String html = readAll(connection.getInputStream());
+            Matcher arrivals = Pattern.compile("<strong class=\"larger\">\\s*(\\d+)(?:&nbsp;|\\s)*MIN", Pattern.CASE_INSENSITIVE).matcher(html);
+            StringBuilder minutes = new StringBuilder("[");
+            while (arrivals.find()) {
+                if (minutes.length() > 1) minutes.append(',');
+                minutes.append(arrivals.group(1));
+            }
+            minutes.append(']');
+            return jsonResponse("{\"route\":\"" + route + "\",\"stop\":\"" + stop + "\",\"direction\":\"south\",\"minutes\":" + minutes + ",\"source\":\"Miami-Dade BusTime\"}", 200, "OK");
+        } catch (Exception ignored) {
+            return error("Bus arrivals unavailable");
         } finally {
             if (connection != null) connection.disconnect();
         }

@@ -10,6 +10,7 @@ const ROOT = __dirname;
 const TRACKER_URL = "https://publictransportation.tsomobile.com/rest/PubTrans/GetModuleInfoPublic";
 const MIME = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json; charset=utf-8" };
 const ALLOWED_KEYS = new Set(["ROUTES_BYTKN", "UNITS_LOCATION_ROUTE", "STOPINFO_WITHOVERLAPS"]);
+const BUS_STOPS = { "3": "6706", "9": "6774" };
 
 function send(res, status, body, type = "application/json; charset=utf-8") {
   res.writeHead(status, { "Content-Type": type, "Cache-Control": "no-store" });
@@ -40,6 +41,21 @@ async function proxyTracker(reqUrl, res) {
   }
 }
 
+async function proxyBus(reqUrl, res) {
+  const route = reqUrl.searchParams.get("route");
+  const stop = BUS_STOPS[route];
+  if (!stop) return send(res, 400, JSON.stringify({ error: "Unsupported bus route." }));
+  const upstream = `https://transitbustime.miamidade.gov/bustime/wireless/html/eta.jsp?direction=MetroBus%3ASOUTHBOUND&id=MetroBus%3A${stop}&route=MetroBus%3A${route}&showAllBusses=off`;
+  try {
+    // Miami-Dade's BusTime host currently serves an incomplete certificate chain.
+    const { stdout: html } = await execFileAsync("curl", ["-k", "-L", "--fail", "--silent", "--show-error", "--max-time", "10", upstream], { maxBuffer: 1024 * 1024 });
+    const minutes = [...html.matchAll(/<strong class="larger">\s*(\d+)(?:&nbsp;|\s)*MIN/gi)].map((match) => Number(match[1]));
+    send(res, 200, JSON.stringify({ route, stop, direction: "south", minutes, source: "Miami-Dade BusTime" }));
+  } catch (error) {
+    send(res, 502, JSON.stringify({ error: "Miami-Dade bus arrivals are unavailable." }));
+  }
+}
+
 function serveFile(reqUrl, res) {
   const requested = reqUrl.pathname === "/" ? "/index.html" : reqUrl.pathname;
   const file = path.join(ROOT, path.normalize(requested).replace(/^(\.\.[/\\])+/, ""));
@@ -53,6 +69,7 @@ function serveFile(reqUrl, res) {
 http.createServer((req, res) => {
   const reqUrl = new URL(req.url, `http://${req.headers.host}`);
   if (reqUrl.pathname === "/api/tracker") return void proxyTracker(reqUrl, res);
+  if (reqUrl.pathname === "/api/bus") return void proxyBus(reqUrl, res);
   serveFile(reqUrl, res);
 }).listen(PORT, "127.0.0.1", () => {
   console.log(`Biscayne Trolley Live: http://localhost:${PORT}`);

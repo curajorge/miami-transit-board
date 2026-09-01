@@ -46,7 +46,7 @@
     const closest = candidates[0];
     return { minutes: Math.max(2, Math.min(25, Math.round(closest.distance / 11 * 60))), source: "live", vehicle: closest.vehicle.ShortName || closest.vehicle.ID, confidence: closest.distance < 1.5 ? "Good" : "Fair" };
   }
-  function planTrip({ from = "place:home", to = "place:downtown", stops = [], mode = "now", arriveBy, vehicles = [], now = new Date() }) {
+  function planTrip({ from = "place:home", to = "place:downtown", stops = [], mode = "now", arriveBy, vehicles = [], buses = [], now = new Date() }) {
     const normalized = normalizeStops(stops), fromPoint = basePoint(from, normalized), toPoint = basePoint(to, normalized);
     if (!fromPoint || !toPoint || from === to) return null;
     const fromStop = from.startsWith("stop:") ? fromPoint : null, toStop = to.startsWith("stop:") ? toPoint : null;
@@ -62,11 +62,25 @@
     const safety = live.source === "live" ? 2 : 4;
     const leaveIn = Math.max(0, live.minutes - walkToStop - safety);
     const tripAfterLeaving = walkToStop + Math.max(safety, live.minutes - leaveIn) + rideMinutes + walkFromStop;
-    const best = { id: "trolley", label: "Biscayne trolley", wait: live.minutes, ride: rideMinutes, walk: walkToStop + walkFromStop, buffer: safety, cost: 0, data: live.source, vehicle: live.vehicle, confidence: live.confidence, total: tripAfterLeaving };
-    const leaveAt = mode === "arrive" && arriveBy ? addMinutes(new Date(arriveBy), -tripAfterLeaving) : addMinutes(roundMinute(now), leaveIn);
-    const arrival = mode === "arrive" && arriveBy ? new Date(arriveBy) : addMinutes(now, live.minutes + rideMinutes + walkFromStop);
-    return { origin, destination, direction, mode, leaveAt, arrival, best, options: [best], boarding: origin.stop, alighting: destination.stop, walkToStop, nextTrolleyMinutes: live.minutes,
-      reason: `${live.source === "live" ? `Trolley ${live.vehicle} is approaching` : "Using the Biscayne route's published headway"}. Leave time includes a ${safety}-minute boarding cushion.`,
+    const trolley = { id: "trolley", label: "Biscayne trolley", wait: live.minutes, ride: rideMinutes, walkToStop, walkFromStop, buffer: safety, cost: 0, data: live.source, vehicle: live.vehicle, confidence: live.confidence, total: tripAfterLeaving, arrivalMinutes: live.minutes + rideMinutes + walkFromStop, boarding: origin.stop.name };
+    const options = [trolley];
+    if (mode === "now" && from === "place:home" && to === "place:downtown" && direction === "south") {
+      buses.forEach((bus) => {
+        const wait = Number(bus.minutes?.[0]);
+        if (!Number.isFinite(wait)) return;
+        const route9 = String(bus.route) === "9", busWalk = route9 ? 2 : 4, busRide = route9 ? 22 : 20, busBuffer = 2;
+        const busLeaveIn = Math.max(0, wait - busWalk - busBuffer);
+        options.push({ id: `bus-${bus.route}`, label: `Metrobus ${bus.route}`, wait, ride: busRide, walkToStop: busWalk, walkFromStop: 4, buffer: busBuffer, cost: 2.25, data: "live-bus", confidence: "Good", total: busWalk + Math.max(busBuffer, wait - busLeaveIn) + busRide + 4, arrivalMinutes: wait + busRide + 4, boarding: route9 ? "NE 2 Ave & NE 29 St" : "Biscayne Blvd & NE 29 St", leaveIn: busLeaveIn });
+      });
+    }
+    options.forEach((option) => { if (option.leaveIn == null) option.leaveIn = Math.max(0, option.wait - option.walkToStop - option.buffer); });
+    options.sort((a, b) => a.arrivalMinutes - b.arrivalMinutes || a.cost - b.cost);
+    const best = options[0], bestDuration = best.total;
+    const leaveAt = mode === "arrive" && arriveBy ? addMinutes(new Date(arriveBy), -bestDuration) : addMinutes(roundMinute(now), best.leaveIn);
+    const arrival = mode === "arrive" && arriveBy ? new Date(arriveBy) : addMinutes(now, best.wait + best.ride + best.walkFromStop);
+    const bestReason = best.id === "trolley" ? `${live.source === "live" ? `Trolley ${live.vehicle} is approaching` : "Using the Biscayne route's published headway"}.` : `Miami-Dade BusTime reports Route ${best.id.slice(4)} approaching.`;
+    return { origin, destination, direction, mode, leaveAt, arrival, best, options, boarding: origin.stop, alighting: destination.stop, walkToStop: best.walkToStop, nextTrolleyMinutes: live.minutes,
+      reason: `${bestReason} Leave time includes a ${best.buffer}-minute boarding cushion.`,
       minutesUntilLeave: Math.max(0, Math.round((leaveAt - now) / 60000)) };
   }
   return { PLACES, normalizeStops, haversineMiles, trolleyWait, planTrip };

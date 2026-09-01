@@ -3,7 +3,7 @@ const API_BASE = "/api/tracker";
 const REFRESH_MS = 30_000;
 const BISCAYNE_CENTER = [25.7867, -80.1948];
 
-const state = { map: null, routeLayer: null, markers: new Map(), stopMarkers: [], userMarker: null, refreshing: false, vehicles: [], stops: [], from: "place:home", to: "place:downtown", mode: "now", pickRole: null };
+const state = { map: null, routeLayer: null, markers: new Map(), stopMarkers: [], userMarker: null, refreshing: false, vehicles: [], buses: [], stops: [], from: "place:home", to: "place:downtown", mode: "now", pickRole: null };
 const ui = {
   count: document.querySelector("#trolleyCount"),
   label: document.querySelector("#statusLabel"),
@@ -77,7 +77,7 @@ function renderPlan() {
     arriveBy.setHours(hours, minutes, 0, 0);
     if (arriveBy < now) arriveBy.setDate(arriveBy.getDate() + 1);
   }
-  const plan = TransitEngine.planTrip({ from: state.from, to: state.to, stops: state.stops, mode: state.mode, arriveBy: arriveBy?.toISOString(), vehicles: state.vehicles, now });
+  const plan = TransitEngine.planTrip({ from: state.from, to: state.to, stops: state.stops, mode: state.mode, arriveBy: arriveBy?.toISOString(), vehicles: state.vehicles, buses: state.buses, now });
   if (!plan) {
     ui.decisionKicker.textContent = "Choose stops in the same direction";
     ui.decisionTime.textContent = "—";
@@ -89,21 +89,20 @@ function renderPlan() {
     ui.boardRows.innerHTML = "";
     return;
   }
-  ui.eyebrow.textContent = `BISCAYNE · ${plan.boarding.name} ${plan.direction === "south" ? "SOUTHBOUND" : "NORTHBOUND"}`;
+  ui.eyebrow.textContent = `${plan.best.label.toUpperCase()} · ${plan.best.boarding || plan.boarding.name}`;
   ui.decisionKicker.textContent = `Best option · ${plan.best.confidence} confidence`;
   ui.decisionTime.textContent = state.mode === "arrive" ? clock(plan.leaveAt) : plan.minutesUntilLeave <= 0 ? "Now" : `${plan.minutesUntilLeave} min`;
   ui.decisionAction.textContent = state.mode === "arrive" ? "leave by" : "time to leave";
-  ui.decisionRoute.textContent = `${plan.best.label}${plan.best.vehicle ? ` ${plan.best.vehicle}` : ""} · ${plan.direction === "south" ? "↓ Southbound" : "↑ Northbound"} · free`;
+  ui.decisionRoute.textContent = `${plan.best.label}${plan.best.vehicle ? ` ${plan.best.vehicle}` : ""} · ${plan.direction === "south" ? "↓ Southbound" : "↑ Northbound"} · ${plan.best.cost ? "$2.25" : "free"}`;
   ui.decisionArrival.textContent = `Expected at ${plan.destination.name}: ${clock(plan.arrival)} · about ${plan.best.total} min`;
-  ui.decisionReason.textContent = `Walk about ${plan.walkToStop} min to ${plan.boarding.name}. Get off at ${plan.alighting.name}. ${plan.reason}`;
-  ui.optionDetails.innerHTML = `<div class="option-line"><span><strong>${plan.best.data === "live" ? "Live vehicle estimate" : "Published headway estimate"}</strong><small>Updated with each tracker refresh</small></span><b>${plan.best.total} min</b></div>`;
-  const nextBoard = state.mode === "arrive" ? new Date(plan.leaveAt.getTime() + plan.walkToStop * 60000) : new Date(now.getTime() + plan.nextTrolleyMinutes * 60000);
-  const followingBoard = new Date(nextBoard.getTime() + 15 * 60000);
-  const tripAfterBoarding = plan.best.ride + (state.to.startsWith("place:") ? 4 : 1);
-  ui.boardRows.innerHTML = [
-    { label: "Next trolley", source: plan.best.data === "live" ? "Live vehicle estimate" : "Headway estimate", board: nextBoard },
-    { label: "Following trolley", source: "Published 15-min headway", board: followingBoard },
-  ].map((item) => `<div class="board-row"><span><strong>${item.label}</strong><small>${item.source}</small></span><b>${clock(item.board)}</b><b>${clock(new Date(item.board.getTime() + tripAfterBoarding * 60000))}</b></div>`).join("");
+  ui.decisionReason.textContent = `Walk about ${plan.walkToStop} min to ${plan.best.boarding || plan.boarding.name}. ${plan.best.id === "trolley" ? `Get off at ${plan.alighting.name}. ` : ""}${plan.reason}`;
+  ui.optionDetails.innerHTML = `<div class="option-line"><span><strong>${plan.best.data === "live" ? "Live trolley estimate" : plan.best.data === "live-bus" ? "Live Miami-Dade BusTime" : "Published headway estimate"}</strong><small>Updated with each refresh</small></span><b>${plan.best.total} min</b></div>`;
+  ui.boardRows.innerHTML = plan.options.map((option) => {
+    const board = new Date(now.getTime() + option.wait * 60000);
+    const arrival = new Date(board.getTime() + (option.ride + option.walkFromStop) * 60000);
+    const source = option.data === "live-bus" ? "Miami-Dade BusTime" : option.data === "live" ? "Live trolley position" : "Trolley headway estimate";
+    return `<div class="board-row${option === plan.best ? " best" : ""}"><span><strong>${option.label}</strong><small>${source} · ${option.cost ? "$2.25" : "free"}</small></span><b>${clock(board)}</b><b>${clock(arrival)}</b></div>`;
+  }).join("");
 }
 
 async function trackerRequest(params) {
@@ -121,6 +120,13 @@ async function trackerRequest(params) {
   } finally {
     window.clearTimeout(timeout);
   }
+}
+
+async function busRequest(route) {
+  const response = await fetch(`/api/bus?route=${encodeURIComponent(route)}`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Bus arrivals unavailable");
+  return data;
 }
 
 function decodePolyline(encoded) {
@@ -242,9 +248,14 @@ async function refreshVehicles() {
   ui.refresh.disabled = true;
   ui.error.hidden = true;
   try {
-    const vehicles = await trackerRequest({ Key: "UNITS_LOCATION_ROUTE", id: ROUTE_ID, lan: "en" });
+    const [vehicleResult, route3, route9] = await Promise.allSettled([
+      trackerRequest({ Key: "UNITS_LOCATION_ROUTE", id: ROUTE_ID, lan: "en" }), busRequest("3"), busRequest("9"),
+    ]);
+    if (vehicleResult.status === "rejected") throw vehicleResult.reason;
+    const vehicles = vehicleResult.value;
     const valid = Array.isArray(vehicles) ? vehicles : [];
     state.vehicles = valid;
+    state.buses = [route3, route9].filter((result) => result.status === "fulfilled").map((result) => result.value);
     updateMarkers(valid);
     renderPlan();
     const newest = valid.reduce((max, item) => Math.max(max, Number(item.Tim) || 0), 0);
@@ -252,7 +263,8 @@ async function refreshVehicles() {
     ui.count.textContent = valid.length;
     ui.status.className = `status-label${age > 180 ? " stale" : ""}`;
     ui.label.textContent = age > 180 ? "Data may be delayed" : "Live now";
-    ui.updated.textContent = newest ? `Newest position updated ${formatAge(newest)} · refreshes every 30 sec` : "No active trolley positions reported";
+    const busNote = state.buses.length ? ` · ${state.buses.length} bus routes checked` : " · bus arrivals unavailable";
+    ui.updated.textContent = newest ? `Newest trolley updated ${formatAge(newest)}${busNote} · refreshes every 30 sec` : `No active trolley positions reported${busNote}`;
   } catch (error) {
     ui.status.className = "status-label error";
     ui.label.textContent = "Tracker unavailable";
