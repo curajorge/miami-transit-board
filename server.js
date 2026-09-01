@@ -9,7 +9,7 @@ const PORT = Number(process.env.PORT || 4173);
 const ROOT = __dirname;
 const TRACKER_URL = "https://publictransportation.tsomobile.com/rest/PubTrans/GetModuleInfoPublic";
 const MIME = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json; charset=utf-8" };
-const BUS_STOPS = { "3": "6706", "9": "6774" };
+const BUS_STOPS = { "3": { south: "6706", north: "103" }, "9": { south: "6774", north: "6635" } };
 const PUBLIC_FILES = new Set(["index.html", "styles.css", "engine.js", "app.js", "bus-stops.js", "vendor/leaflet.css", "vendor/leaflet.js"]);
 const responseCache = new Map();
 const inFlight = new Map();
@@ -67,13 +67,14 @@ async function proxyTracker(reqUrl, res) {
 
 async function proxyBus(reqUrl, res) {
   const route = reqUrl.searchParams.get("route");
-  const stop = BUS_STOPS[route];
-  if (!stop) return send(res, 400, JSON.stringify({ error: "Unsupported bus route." }));
-  const upstream = `https://transitbustime.miamidade.gov/bustime/wireless/html/eta.jsp?direction=MetroBus%3ASOUTHBOUND&id=MetroBus%3A${stop}&route=MetroBus%3A${route}&showAllBusses=off`;
+  const direction = reqUrl.searchParams.get("direction");
+  const stop = BUS_STOPS[route]?.[direction];
+  if (!stop) return send(res, 400, JSON.stringify({ error: "Unsupported bus request." }));
+  const upstream = `https://transitbustime.miamidade.gov/bustime/wireless/html/eta.jsp?direction=MetroBus%3A${direction.toUpperCase()}BOUND&id=MetroBus%3A${stop}&route=MetroBus%3A${route}&showAllBusses=off`;
   try {
-    const html = await cachedCurl(`bus:${route}`, ["--proto", "=https", "--proto-redir", "=https", "-L", "--fail", "--silent", "--show-error", "--max-time", "10", "--max-filesize", "1048576", upstream], 20_000);
+    const html = await cachedCurl(`bus:${route}:${direction}`, ["--proto", "=https", "--proto-redir", "=https", "-L", "--fail", "--silent", "--show-error", "--max-time", "10", "--max-filesize", "1048576", upstream], 20_000);
     const minutes = [...html.matchAll(/<strong class="larger">\s*(\d+)(?:&nbsp;|\s)*MIN/gi)].map((match) => Number(match[1]));
-    send(res, 200, JSON.stringify({ route, stop, direction: "south", minutes, source: "Miami-Dade BusTime" }));
+    send(res, 200, JSON.stringify({ route, stop, direction, minutes, source: "Miami-Dade BusTime" }));
   } catch (error) {
     send(res, 502, JSON.stringify({ error: "Miami-Dade bus arrivals are unavailable." }));
   }

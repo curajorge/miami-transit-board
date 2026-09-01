@@ -2,7 +2,7 @@ const ROUTE_ID = "71276";
 const API_BASE = "/api/tracker";
 const REFRESH_MS = 30_000;
 const BISCAYNE_CENTER = [25.7867, -80.1948];
-const BUS_STOPS = Object.values(window.MiamiBusStops?.routes || {}).flatMap((group) => group.stops.map((stop) => ({ ...stop, route: group.route, direction: group.direction })));
+const BUS_STOPS = TransitEngine.busStopsForCorridor(window.MiamiBusStops?.routes);
 
 const state = { map: null, routeLayer: null, markers: new Map(), stopMarkers: [], busStopMarkers: [], stopLayer: "all", userMarker: null, refreshing: false, vehicles: [], buses: [], stops: [], from: "place:home", to: "place:downtown", mode: "now", pickRole: null };
 const ui = {
@@ -35,7 +35,7 @@ const ui = {
 function endpointText(value) {
   if (value.startsWith("place:")) {
     const place = TransitEngine.PLACES[value.slice(6)];
-    return place ? { name: place.name, detail: place.detail } : { name: "Choose on map", detail: "Tap a Biscayne stop" };
+    return place ? { name: place.name, detail: place.detail } : { name: "Choose on map", detail: "Tap a transit stop" };
   }
   if (value.startsWith("bus:")) {
     const [, route, direction, id] = value.split(":");
@@ -43,7 +43,7 @@ function endpointText(value) {
     return { name: stop?.name || "Choose a bus stop", detail: `Metrobus ${route} · ${direction}bound` };
   }
   const stop = TransitEngine.normalizeStops(state.stops).find((item) => item.id === value.replace("stop:", ""));
-  return { name: stop?.name || "Choose on map", detail: stop ? `Biscayne stop ${stop.sequence}` : "Tap a stop" };
+  return { name: stop?.name || "Choose on map", detail: stop ? `Biscayne stop ${stop.sequence}` : "Tap a transit stop" };
 }
 
 function refreshEndpointCards() {
@@ -60,6 +60,24 @@ function setEndpoint(role, endpointValue) {
   renderPlan();
 }
 
+function reverseEndpoint(value) {
+  if (value.startsWith("place:")) return value;
+  if (value.startsWith("bus:")) {
+    const [, route, direction, id] = value.split(":");
+    const selected = BUS_STOPS.find((stop) => stop.route === route && stop.direction === direction && stop.id === id);
+    if (!selected) return value;
+    const opposite = BUS_STOPS.filter((stop) => stop.route === route && stop.direction !== direction)
+      .sort((a, b) => TransitEngine.haversineMiles(selected, a) - TransitEngine.haversineMiles(selected, b))[0];
+    return opposite ? `bus:${opposite.route}:${opposite.direction}:${opposite.id}` : value;
+  }
+  const selected = TransitEngine.normalizeStops(state.stops).find((stop) => stop.id === value.replace("stop:", ""));
+  if (!selected) return value;
+  const direction = selected.sequence <= 32 ? "south" : "north";
+  const opposite = TransitEngine.normalizeStops(state.stops).filter((stop) => (stop.sequence <= 32 ? "south" : "north") !== direction)
+    .sort((a, b) => TransitEngine.haversineMiles(selected, a) - TransitEngine.haversineMiles(selected, b))[0];
+  return opposite ? `stop:${opposite.id}` : value;
+}
+
 function setPickRole(role) {
   state.pickRole = state.pickRole === role ? null : role;
   document.querySelectorAll("[data-pick-role]").forEach((button) => button.classList.toggle("active", button.dataset.pickRole === state.pickRole));
@@ -67,7 +85,7 @@ function setPickRole(role) {
 }
 
 function updatePickHint(message) {
-  ui.pickHint.textContent = message || "Tap a stop for its next Biscayne trolley";
+  ui.pickHint.textContent = message || "Tap any stop for arrivals or trip selection";
 }
 
 const clock = (date) => new Intl.DateTimeFormat([], { hour: "numeric", minute: "2-digit" }).format(date);
@@ -86,7 +104,7 @@ function renderPlan() {
     ui.decisionKicker.textContent = "Choose stops in the same direction";
     ui.decisionTime.textContent = "—";
     ui.decisionAction.textContent = "";
-    ui.decisionRoute.textContent = "Pick two Biscayne stops that travel in the same direction.";
+    ui.decisionRoute.textContent = "Choose stops that support the same travel direction.";
     ui.decisionArrival.textContent = "";
     ui.decisionReason.textContent = "";
     ui.optionDetails.innerHTML = "";
@@ -126,8 +144,8 @@ async function trackerRequest(params) {
   }
 }
 
-async function busRequest(route) {
-  const response = await fetch(`/api/bus?route=${encodeURIComponent(route)}`);
+async function busRequest(route, direction) {
+  const response = await fetch(`/api/bus?route=${encodeURIComponent(route)}&direction=${encodeURIComponent(direction)}`);
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Bus arrivals unavailable");
   return data;
@@ -242,7 +260,7 @@ function renderStopLayer() {
   state.stopMarkers.forEach((marker) => showTrolley ? marker.addTo(state.map) : marker.remove());
   state.busStopMarkers.forEach(({ marker, stop }) => (state.stopLayer === "all" || state.stopLayer === stop.route) ? marker.addTo(state.map) : marker.remove());
   const visible = (showTrolley ? state.stopMarkers.length : 0) + state.busStopMarkers.filter(({ stop }) => state.stopLayer === "all" || state.stopLayer === stop.route).length;
-  ui.visibleStopCount.textContent = `${visible} stops`;
+  ui.visibleStopCount.textContent = `${visible} nearby stops`;
 }
 
 function trolleyIcon(name) {
@@ -288,14 +306,18 @@ async function refreshVehicles() {
   ui.refresh.disabled = true;
   ui.error.hidden = true;
   try {
-    const [vehicleResult, route3, route9] = await Promise.allSettled([
-      trackerRequest({ Key: "UNITS_LOCATION_ROUTE", id: ROUTE_ID, lan: "en" }), busRequest("3"), busRequest("9"),
+    const [vehicleResult, ...busResults] = await Promise.allSettled([
+      trackerRequest({ Key: "UNITS_LOCATION_ROUTE", id: ROUTE_ID, lan: "en" }),
+      busRequest("3", "south"), busRequest("9", "south"), busRequest("3", "north"), busRequest("9", "north"),
     ]);
-    if (vehicleResult.status === "rejected") throw vehicleResult.reason;
+    state.buses = busResults.filter((result) => result.status === "fulfilled").map((result) => result.value);
+    if (vehicleResult.status === "rejected") {
+      renderPlan();
+      throw vehicleResult.reason;
+    }
     const vehicles = vehicleResult.value;
     const valid = Array.isArray(vehicles) ? vehicles : [];
     state.vehicles = valid;
-    state.buses = [route3, route9].filter((result) => result.status === "fulfilled").map((result) => result.value);
     updateMarkers(valid);
     renderPlan();
     const newest = valid.reduce((max, item) => Math.max(max, Number(item.Tim) || 0), 0);
@@ -303,12 +325,12 @@ async function refreshVehicles() {
     ui.count.textContent = valid.length;
     ui.status.className = `status-label${age > 180 ? " stale" : ""}`;
     ui.label.textContent = age > 180 ? "Data may be delayed" : "Live now";
-    const busNote = state.buses.length ? ` · ${state.buses.length} bus routes checked` : " · bus arrivals unavailable";
+    const busNote = state.buses.length ? ` · ${state.buses.length} bus arrival points checked` : " · bus arrivals unavailable";
     ui.updated.textContent = newest ? `Newest trolley updated ${formatAge(newest)}${busNote} · refreshes every 30 sec` : `No active trolley positions reported${busNote}`;
   } catch (error) {
     ui.status.className = "status-label error";
     ui.label.textContent = "Tracker unavailable";
-    ui.updated.textContent = "Showing the last positions received";
+    ui.updated.textContent = state.buses.length ? `${state.buses.length} bus arrival points checked · showing last trolley positions` : "Showing the last positions received";
     ui.error.textContent = `${error.message} Tap Refresh to try again.`;
     ui.error.hidden = false;
   } finally {
@@ -330,7 +352,7 @@ async function start() {
 
 ui.refresh.addEventListener("click", refreshVehicles);
 ui.swap.addEventListener("click", () => {
-  [state.from, state.to] = [state.to, state.from];
+  [state.from, state.to] = [reverseEndpoint(state.to), reverseEndpoint(state.from)];
   localStorage.setItem("transit.from", state.from); localStorage.setItem("transit.to", state.to);
   refreshEndpointCards();
   renderPlan();
@@ -346,7 +368,7 @@ document.querySelectorAll("[data-trip]").forEach((button) => button.addEventList
   const trip = button.dataset.trip;
   if (trip === "home") {
     const away = state.to !== "place:home" ? state.to : state.from !== "place:home" ? state.from : "place:downtown";
-    state.from = away; state.to = "place:home";
+    state.from = reverseEndpoint(away); state.to = "place:home";
   }
   else { state.from = "place:home"; state.to = `place:${trip}`; }
   localStorage.setItem("transit.from", state.from); localStorage.setItem("transit.to", state.to);

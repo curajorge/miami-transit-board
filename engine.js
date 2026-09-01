@@ -35,6 +35,16 @@
   function nearestStop(point, stops) {
     return stops.slice().sort((a, b) => haversineMiles(point, a) - haversineMiles(point, b))[0];
   }
+  function busStopsForCorridor(routeGroups, start = PLACES.home, end = PLACES.downtown) {
+    const groups = Array.isArray(routeGroups) ? routeGroups : Object.values(routeGroups || {});
+    return groups.flatMap((group) => {
+      const stops = Array.isArray(group?.stops) ? group.stops.filter((stop) => Number.isFinite(stop.lat) && Number.isFinite(stop.lng) && Number.isFinite(stop.sequence)) : [];
+      if (!stops.length) return [];
+      const first = nearestStop(start, stops), last = nearestStop(end, stops);
+      const low = Math.min(first.sequence, last.sequence), high = Math.max(first.sequence, last.sequence);
+      return stops.filter((stop) => stop.sequence >= low && stop.sequence <= high).map((stop) => ({ ...stop, route: String(group.route), direction: String(group.direction) }));
+    });
+  }
   function endpoint(value, stops, direction, busStops = []) {
     if (value.startsWith("place:")) {
       const key = value.slice(6), place = PLACES[key], stop = stops.find((item) => item.id === place[direction]);
@@ -83,7 +93,8 @@
       }
     }
     const selectedBusRoutes = [...new Set([fromBus?.route, toBus?.route].filter(Boolean))];
-    const eligibleRoutes = selectedBusRoutes.length ? selectedBusRoutes : (from === "place:home" && to === "place:downtown" && direction === "south" ? ["3", "9"] : []);
+    const commonDowntownTrip = (from === "place:home" && to === "place:downtown" && direction === "south") || (from === "place:downtown" && to === "place:home" && direction === "north");
+    const eligibleRoutes = selectedBusRoutes.length ? selectedBusRoutes : (commonDowntownTrip ? ["3", "9"] : []);
     if (mode === "now") {
       eligibleRoutes.forEach((route) => {
         const routeStops = busStops.filter((stop) => stop.route === route && stop.direction === direction);
@@ -110,5 +121,5 @@
       reason: `${bestReason} Leave time includes a ${best.buffer}-minute boarding cushion.`,
       minutesUntilLeave: Math.max(0, Math.round((leaveAt - now) / 60000)) };
   }
-  return { PLACES, normalizeStops, haversineMiles, trolleyWait, planTrip };
+  return { PLACES, normalizeStops, busStopsForCorridor, haversineMiles, trolleyWait, planTrip };
 });

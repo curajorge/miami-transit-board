@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0a558c" />
-    <meta name="description" content="A simple live map for Miami's Biscayne trolley route." />
+    <meta name="description" content="Live Biscayne trolley and Metrobus guidance between Edgewater and Downtown Miami." />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'" />
     <title>Miami Transit Board</title>
@@ -18,7 +18,6 @@
           <p class="eyebrow" id="tripEyebrow">BISCAYNE · WHOLE FOODS SOUTHBOUND</p>
           <h1>Your best <span>ride</span></h1>
         </div>
-        <span class="route-chip">Route 2</span>
       </header>
 
       <section class="planner" aria-labelledby="plannerTitle">
@@ -26,14 +25,14 @@
         <div class="quick-trips" aria-label="Common destinations">
           <button type="button" data-trip="downtown">Downtown</button>
           <button type="button" data-trip="brickell">Brickell</button>
-          <button type="button" data-pick-role="to">Pick on map</button>
+          <button type="button" data-pick-role="to">Choose on map</button>
         </div>
         <div class="station-picker">
           <button class="endpoint-card" type="button" data-pick-role="from" aria-label="Choose starting stop on map"><span>FROM</span><strong id="fromLabel">Whole Foods</strong><small id="fromDetail">Edgewater</small></button>
           <button class="swap-button" id="swapButton" type="button" aria-label="Swap starting place and destination">⇅</button>
           <button class="endpoint-card" type="button" data-pick-role="to" aria-label="Choose destination stop on map"><span>TO</span><strong id="toLabel">Downtown</strong><small id="toDetail">Bayfront</small></button>
         </div>
-        <button class="return-home" type="button" data-trip="home">Going home? Reverse this trip</button>
+        <button class="return-home" type="button" data-trip="home">Reverse trip to go home</button>
         <div class="time-row">
           <button class="time-mode active" type="button" data-mode="now">Leave now</button>
           <button class="time-mode" type="button" data-mode="arrive">Arrive by</button>
@@ -58,7 +57,7 @@
       </section>
 
       <section class="stop-toolbar" aria-labelledby="stopsTitle">
-        <div><h2 id="stopsTitle">Stops on the map</h2><span id="visibleStopCount"></span></div>
+        <div><h2 id="stopsTitle">Edgewater–Downtown stops</h2><span id="visibleStopCount"></span></div>
         <div class="stop-filters" role="group" aria-label="Filter stops by service">
           <button class="active" type="button" data-stop-layer="all" aria-pressed="true">All</button>
           <button type="button" data-stop-layer="trolley" aria-pressed="false"><i class="legend trolley"></i>Trolley</button>
@@ -67,16 +66,15 @@
         </div>
       </section>
 
-      <section class="map-wrap" aria-label="Live Biscayne trolley map">
+      <section class="map-wrap" aria-label="Transit stops and live Biscayne trolley map">
         <div id="map"></div>
         <div class="map-pick-tools" id="mapPickTools">
-          <p id="pickHint">Tap a stop for its next Biscayne trolley</p>
+          <p id="pickHint">Tap any stop for arrivals or trip selection</p>
         </div>
         <div class="map-loading" id="mapLoading" role="status">
           <span class="spinner"></span>
           Finding trolleys…
         </div>
-        <div class="route-badge" aria-hidden="true"><strong>2</strong><span>BISCAYNE TROLLEY</span></div>
       </section>
 
       <section class="status-sheet" aria-live="polite">
@@ -93,7 +91,7 @@
         </div>
         <p class="updated" id="updatedText">Waiting for live vehicle positions</p>
         <p class="error-message" id="errorMessage" hidden></p>
-        <p class="source-note">Live positions from the City of Miami public trolley tracker. Not an official City app.</p>
+        <p class="source-note">City trolley positions and Miami-Dade bus estimates. Independent, unofficial app.</p>
       </section>
     </main>
 

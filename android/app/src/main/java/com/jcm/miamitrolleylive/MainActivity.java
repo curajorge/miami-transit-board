@@ -121,10 +121,12 @@ public class MainActivity extends Activity {
         try {
             String query = localUrl.getQuery() == null ? "" : localUrl.getQuery();
             Matcher routeMatch = Pattern.compile("(?:^|&)route=(3|9)(?:&|$)").matcher(query);
-            if (!routeMatch.find()) return error("Unsupported bus route");
+            Matcher directionMatch = Pattern.compile("(?:^|&)direction=(south|north)(?:&|$)").matcher(query);
+            if (!routeMatch.find() || !directionMatch.find()) return error("Unsupported bus route");
             String route = routeMatch.group(1);
-            String stop = route.equals("3") ? "6706" : "6774";
-            URL upstream = new URL(BUS_TIME + "?direction=MetroBus%3ASOUTHBOUND&id=MetroBus%3A" + stop + "&route=MetroBus%3A" + route + "&showAllBusses=off");
+            String direction = directionMatch.group(1);
+            String stop = route.equals("3") ? (direction.equals("south") ? "6706" : "103") : (direction.equals("south") ? "6774" : "6635");
+            URL upstream = new URL(BUS_TIME + "?direction=MetroBus%3A" + direction.toUpperCase() + "BOUND&id=MetroBus%3A" + stop + "&route=MetroBus%3A" + route + "&showAllBusses=off");
             connection = (HttpURLConnection) upstream.openConnection();
             connection.setRequestProperty("User-Agent", "Mozilla/5.0 MiamiTransit/0.1");
             connection.setConnectTimeout(10_000);
@@ -138,7 +140,7 @@ public class MainActivity extends Activity {
                 minutes.append(arrivals.group(1));
             }
             minutes.append(']');
-            return jsonResponse("{\"route\":\"" + route + "\",\"stop\":\"" + stop + "\",\"direction\":\"south\",\"minutes\":" + minutes + ",\"source\":\"Miami-Dade BusTime\"}", 200, "OK");
+            return jsonResponse("{\"route\":\"" + route + "\",\"stop\":\"" + stop + "\",\"direction\":\"" + direction + "\",\"minutes\":" + minutes + ",\"source\":\"Miami-Dade BusTime\"}", 200, "OK");
         } catch (Exception ignored) {
             return error("Bus arrivals unavailable");
         } finally {

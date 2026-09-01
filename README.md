@@ -10,11 +10,11 @@ No AI is used for trip recommendations. Every recommendation comes from explicit
 ## What works
 
 - Live City of Miami Biscayne trolley positions, refreshed every 30 seconds
-- Metrobus 3 and 9 arrivals for the common Home-to-Downtown trip
+- Metrobus 3 and 9 arrivals for the common Home-to-Downtown trip in both directions
 - Leave-now and arrive-by planning for Downtown and Brickell
 - Direction-aware return trips
 - All 60 Biscayne trolley stops
-- Metrobus 3 and 9 stops generated from Miami-Dade GTFS
+- Metrobus 3 and 9 stops generated from Miami-Dade GTFS and scoped to the Edgewater–Downtown corridor
 - Map filters organized by Trolley, Bus 3, and Bus 9
 - Map-based From/To selection that preserves service, direction, and stop
 - Clear live, stale, headway, and schedule-estimate labels
@@ -66,7 +66,7 @@ Review the generated diff and run `npm run verify` before committing it.
 | `engine.js` | Deterministic trip comparison and timing rules |
 | `app.js` | Map, public-feed adapters, and interface state |
 | `server.js` | Local static server and constrained feed proxies |
-| `bus-stops.js` | Generated Route 3 and 9 stop catalog |
+| `bus-stops.js` | Generated full Route 3 and 9 catalog; the app selects the Edgewater–Downtown segment |
 | `android/` | Minimal Android WebView wrapper |
 | `tools/` | Reproducible data-generation utilities |
 
