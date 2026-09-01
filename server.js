@@ -21,11 +21,17 @@ function send(res, status, body, type = "application/json; charset=utf-8") {
 
 async function cachedCurl(key, args, ttl = 15_000) {
   const cached = responseCache.get(key);
-  if (cached && Date.now() - cached.time < ttl) return cached.text;
+  if (cached && Date.now() - cached.time < ttl) {
+    if (cached.error) throw new Error(cached.error);
+    return cached.text;
+  }
   if (inFlight.has(key)) return inFlight.get(key);
   const request = execFileAsync("curl", args, { maxBuffer: 5 * 1024 * 1024 }).then(({ stdout }) => {
     responseCache.set(key, { time: Date.now(), text: stdout });
     return stdout;
+  }).catch((error) => {
+    responseCache.set(key, { time: Date.now(), error: error.message });
+    throw error;
   }).finally(() => inFlight.delete(key));
   inFlight.set(key, request);
   return request;
@@ -47,7 +53,7 @@ async function proxyTracker(reqUrl, res) {
   try {
     // The legacy service returns HTTP 500 to browsers and Node's HTTP client.
     // execFile passes the URL as a literal argument; no shell is involved.
-    const text = await cachedCurl(`tracker:${key}`, ["-L", "--fail", "--silent", "--show-error", "--max-time", "10", upstream.toString()]);
+    const text = await cachedCurl(`tracker:${key}`, ["--proto", "=https", "--proto-redir", "=https", "-L", "--fail", "--silent", "--show-error", "--max-time", "10", upstream.toString()]);
     const match = text.match(/^x\((.*)\);?\s*$/s);
     if (!match) throw new Error("Unexpected upstream response");
     const payload = JSON.parse(match[1]);
@@ -65,7 +71,7 @@ async function proxyBus(reqUrl, res) {
   if (!stop) return send(res, 400, JSON.stringify({ error: "Unsupported bus route." }));
   const upstream = `https://transitbustime.miamidade.gov/bustime/wireless/html/eta.jsp?direction=MetroBus%3ASOUTHBOUND&id=MetroBus%3A${stop}&route=MetroBus%3A${route}&showAllBusses=off`;
   try {
-    const html = await cachedCurl(`bus:${route}`, ["-L", "--fail", "--silent", "--show-error", "--max-time", "10", "--max-filesize", "1048576", upstream], 20_000);
+    const html = await cachedCurl(`bus:${route}`, ["--proto", "=https", "--proto-redir", "=https", "-L", "--fail", "--silent", "--show-error", "--max-time", "10", "--max-filesize", "1048576", upstream], 20_000);
     const minutes = [...html.matchAll(/<strong class="larger">\s*(\d+)(?:&nbsp;|\s)*MIN/gi)].map((match) => Number(match[1]));
     send(res, 200, JSON.stringify({ route, stop, direction: "south", minutes, source: "Miami-Dade BusTime" }));
   } catch (error) {

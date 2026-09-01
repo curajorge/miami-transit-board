@@ -17,6 +17,7 @@ const busStops = [
   {route:"9",direction:"south",id:"9-downtown",name:"Downtown Terminal",lat:25.7732,lng:-80.1875,sequence:25},
 ];
 test("normalizes official stop sequence", () => assert.equal(normalizeStops(stops)[0].sequence, 6));
+test("rejects malformed stop coordinates", () => assert.equal(normalizeStops([{ID:"bad",Name:"Bad",StopNumber:"1 - Bad",Latitude:"25.8",Longitude:"not-a-number"}]).length,0));
 test("southbound shortcut resolves exact stops", () => { const p=planTrip({from:"place:home",to:"place:brickell",stops,now:NOW}); assert.equal(p.direction,"south"); assert.equal(p.boarding.id,"920851"); assert.equal(p.alighting.id,"920876"); });
 test("return trip resolves northbound stops", () => { const p=planTrip({from:"place:brickell",to:"place:home",stops,now:NOW}); assert.equal(p.direction,"north"); assert.equal(p.boarding.id,"921010"); assert.equal(p.alighting.id,"921033"); });
 test("arrive-by subtracts total duration", () => { const d=new Date("2026-08-31T19:00:00-04:00"),p=planTrip({from:"place:home",to:"place:downtown",stops,mode:"arrive",arriveBy:d,now:NOW}); assert.equal(Math.round((d-p.leaveAt)/60000),p.best.total); });

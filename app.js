@@ -134,6 +134,7 @@ async function busRequest(route) {
 }
 
 function decodePolyline(encoded) {
+  if (typeof encoded !== "string" || encoded.length > 500_000) throw new Error("Route geometry is invalid.");
   const points = [];
   let index = 0, lat = 0, lng = 0;
   while (index < encoded.length) {
@@ -144,6 +145,7 @@ function decodePolyline(encoded) {
     do { byte = encoded.charCodeAt(index++) - 63; result |= (byte & 31) << shift; shift += 5; } while (byte >= 32);
     lng += result & 1 ? ~(result >> 1) : result >> 1;
     points.push([lat / 1e5, lng / 1e5]);
+    if (points.length > 50_000) throw new Error("Route geometry is too large.");
   }
   return points;
 }
@@ -164,6 +166,7 @@ async function loadRoute() {
   state.stops = Array.isArray(data?.[1]) ? data[1].filter((item) => String(item.RouteID) === ROUTE_ID) : [];
   if (!route?.RoutePath) throw new Error("Biscayne route geometry is unavailable.");
   const points = decodePolyline(route.RoutePath);
+  if (!points.length || points.some(([lat, lng]) => !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180)) throw new Error("Biscayne route geometry is invalid.");
   state.routeLayer = L.polyline(points, { color: "#2363c3", weight: 6, opacity: .9, lineCap: "round" }).addTo(state.map);
   state.map.fitBounds(state.routeLayer.getBounds(), { padding: [24, 24] });
   populateStations();

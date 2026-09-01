@@ -14,4 +14,6 @@ Miami Transit Board is an independent project and is not affiliated with or endo
 - The Home-to-Downtown prototype reads public arrival estimates for the NE 29th Street stops from Miami-Dade BusTime.
 - When a live bus arrival is unavailable, the app labels the result as a schedule estimate.
 
+Miami-Dade describes its transit feeds as open data intended for third-party applications. The repository's MIT License covers the project code; it does not relicense source transit data, which remains subject to the publisher's applicable terms. See the [Miami-Dade transit open-data page](https://www.miamidade.gov/global/transportation/open-data-feeds.page) and [County website user agreement](https://www.miamidade.gov/global/disclaimer/disclaimer.page).
+
 Transit data can be incomplete, stale, delayed, or changed by its publisher. Do not use this prototype as the sole basis for time-critical travel.

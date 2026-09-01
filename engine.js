@@ -20,7 +20,7 @@
     return rawStops.map((stop) => {
       const match = String(stop.StopNumber || "").match(/^(\d+)/);
       return { id: String(stop.ID), name: stop.Name, label: stop.StopNumber || stop.Name, lat: Number(stop.Latitude), lng: Number(stop.Longitude), sequence: match ? Number(match[1]) : 0 };
-    }).filter((stop) => stop.id && stop.sequence && Number.isFinite(stop.lat));
+    }).filter((stop) => stop.id && stop.sequence && Number.isFinite(stop.lat) && Number.isFinite(stop.lng) && Math.abs(stop.lat) <= 90 && Math.abs(stop.lng) <= 180);
   }
   function busPoint(value, busStops) {
     if (!value.startsWith("bus:")) return null;
