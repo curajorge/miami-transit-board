@@ -14,7 +14,7 @@ No AI is used for trip recommendations. Every recommendation comes from explicit
 - Leave-now and arrive-by planning for Downtown and Brickell
 - Direction-aware return trips
 - All 60 Biscayne trolley stops, with a bundled fallback when the public tracker is unavailable
-- A switchable stop-timeline prototype that previews each location on the map while you scroll
+- A switchable Route Lens prototype with explicit map previews, one-stop controls, familiar-place shortcuts, and searchable stops
 - Combined map points when Trolley and Metrobus serve the same physical location
 - Metrobus 3 and 9 stops generated from Miami-Dade GTFS and scoped to the Edgewater–Downtown corridor
 - Map filters organized by Trolley, Bus 3, and Bus 9

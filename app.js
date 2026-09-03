@@ -5,7 +5,7 @@ const BISCAYNE_CENTER = [25.7867, -80.1948];
 const BUS_STOPS = TransitEngine.busStopsForCorridor(window.MiamiBusStops?.routes);
 const FALLBACK_TROLLEY_STOPS = window.MiamiTrolleyStops?.stops || [];
 
-const state = { map: null, routeLayer: null, markers: new Map(), stopMarkers: [], busStopMarkers: [], locationMarkers: [], stopLayer: "all", userMarker: null, refreshing: false, vehicles: [], buses: [], stops: FALLBACK_TROLLEY_STOPS, locations: [], from: "place:home", to: "place:downtown", mode: "now", view: "board", pickRole: null, timelineRole: "to", timelineActiveId: null, timelineScrollFrame: null };
+const state = { map: null, routeLayer: null, markers: new Map(), stopMarkers: [], busStopMarkers: [], locationMarkers: [], stopLayer: "all", userMarker: null, refreshing: false, vehicles: [], buses: [], stops: FALLBACK_TROLLEY_STOPS, locations: [], from: "place:home", to: "place:downtown", mode: "now", view: "board", pickRole: null, timelineRole: "to", timelineActiveId: null };
 const ui = {
   count: document.querySelector("#trolleyCount"),
   label: document.querySelector("#statusLabel"),
@@ -38,10 +38,21 @@ const ui = {
   timelineList: document.querySelector("#timelineList"),
   timelineConfirm: document.querySelector("#timelineConfirm"),
   timelineSwap: document.querySelector("#timelineSwapButton"),
+  timelineRoleText: document.querySelector("#timelineRoleText"),
+  timelineMapRole: document.querySelector("#timelineMapRole"),
+  timelinePosition: document.querySelector("#timelinePosition"),
+  timelineSelectedName: document.querySelector("#timelineSelectedName"),
+  timelineSelectedDetail: document.querySelector("#timelineSelectedDetail"),
+  timelineSelectedBadges: document.querySelector("#timelineSelectedBadges"),
+  timelinePrev: document.querySelector("#timelinePrev"),
+  timelineNext: document.querySelector("#timelineNext"),
+  timelineDirectory: document.querySelector("#timelineDirectory"),
+  timelineDirectoryCount: document.querySelector("#timelineDirectoryCount"),
+  timelineSearch: document.querySelector("#timelineSearch"),
 };
 
 const serviceName = (service) => service === "trolley" ? "Trolley" : service === "bus-3" ? "Bus 3" : "Bus 9";
-const locationServices = (location) => location ? location.services.map(serviceName).join(" · ") || "Saved place" : "Scroll to choose";
+const locationServices = (location) => location ? location.services.map(serviceName).join(" · ") || "Saved place" : "Tap a marker or browse stops";
 
 function endpointText(value) {
   if (value.startsWith("place:")) {
@@ -110,7 +121,7 @@ function setPickRole(role) {
 }
 
 function updatePickHint(message) {
-  ui.pickHint.textContent = message || (state.view === "timeline" ? "Scroll the timeline — the map follows" : "Tap any stop for arrivals or trip selection");
+  ui.pickHint.textContent = message || (state.view === "timeline" ? "Tap a marker to preview it" : "Tap any stop for arrivals or trip selection");
 }
 
 const clock = (date) => new Intl.DateTimeFormat([], { hour: "numeric", minute: "2-digit" }).format(date);
@@ -177,7 +188,7 @@ async function busRequest(route, direction) {
 }
 
 function friendlyStopName(value) {
-  return String(value || "Transit stop").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase())
+  return String(value || "Transit stop").trim().replace(/\s+/g, " ").replace(/\s*\((SB|NB)\)\s*$/i, "").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase())
     .replace(/\b(Ne|Nw|Se|Sw|Sb|Nb)\b/g, (word) => word.toUpperCase())
     .replace(/\bBd\b/g, "Blvd").replace(/\bAv\b/g, "Ave");
 }
@@ -193,6 +204,18 @@ function locationBadges(location) {
   if (location.placeKeys.length) badges.push({ type: "place", label: "★" });
   location.services.forEach((service) => badges.push({ type: service, label: service === "trolley" ? "T" : service.slice(4) }));
   return badges;
+}
+
+function fillLocationBadges(container, location) {
+  container.replaceChildren();
+  if (!location) return;
+  locationBadges(location).forEach((badge) => {
+    const item = document.createElement("span");
+    item.className = `service-badge ${badge.type}`;
+    item.textContent = badge.label;
+    item.title = badge.type === "place" ? "Familiar place" : serviceName(badge.type);
+    container.appendChild(item);
+  });
 }
 
 function timelineLocationForEndpoint(value) {
@@ -237,19 +260,32 @@ function updateTimelineSelection(moveMap = true) {
     item.setAttribute("aria-selected", String(active));
   });
   state.locationMarkers.forEach(({ marker, location: item }) => marker.getElement()?.classList.toggle("active", item.id === state.timelineActiveId));
+  document.querySelectorAll("[data-lens-place]").forEach((button) => button.classList.toggle("active", Boolean(location?.placeKeys.includes(button.dataset.lensPlace))));
+  const index = location ? state.locations.indexOf(location) : -1;
+  const roleLabel = state.timelineRole === "from" ? "start" : "destination";
+  ui.timelineRoleText.textContent = `CHOOSING ${roleLabel.toUpperCase()}`;
+  ui.timelineMapRole.textContent = `Choosing ${roleLabel}`;
+  ui.timelinePosition.textContent = index >= 0 ? `${index + 1} of ${state.locations.length}` : `— of ${state.locations.length || "—"}`;
+  ui.timelineSelectedName.textContent = location?.name || "Choose a stop";
+  ui.timelineSelectedDetail.textContent = location?.detail || "Tap a map marker or browse the route.";
+  fillLocationBadges(ui.timelineSelectedBadges, location);
+  ui.timelinePrev.disabled = index <= 0;
+  ui.timelineNext.disabled = index < 0 || index >= state.locations.length - 1;
   ui.timelineConfirm.disabled = !location;
-  ui.timelineConfirm.textContent = location ? `Use ${location.name} as ${state.timelineRole === "from" ? "From" : "To"}` : "Choose a location";
+  ui.timelineConfirm.textContent = location ? `Set ${location.name} as ${roleLabel}` : "Choose a location";
   if (location && moveMap && state.map) state.map.panTo([location.lat, location.lng], { animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches, duration: .25 });
 }
 
-function selectTimelineLocation(id, { moveMap = true, scroll = false } = {}) {
+function selectTimelineLocation(id, { moveMap = true } = {}) {
   if (!state.locations.some((location) => location.id === id)) return;
   state.timelineActiveId = id;
   updateTimelineSelection(moveMap);
-  if (scroll) {
-    const item = ui.timelineList.querySelector(`[data-location-id="${CSS.escape(id)}"]`);
-    if (item) ui.timelineList.scrollTo({ top: item.offsetTop - (ui.timelineList.clientHeight - item.offsetHeight) / 2, behavior: "auto" });
-  }
+}
+
+function stepTimeline(delta) {
+  const index = state.locations.findIndex((location) => location.id === state.timelineActiveId);
+  const next = state.locations[Math.max(0, Math.min(state.locations.length - 1, index + delta))];
+  if (next) selectTimelineLocation(next.id);
 }
 
 function renderTimelineList() {
@@ -257,6 +293,7 @@ function renderTimelineList() {
   state.locations.forEach((location) => {
     const button = document.createElement("button");
     button.type = "button"; button.className = "timeline-stop"; button.dataset.locationId = location.id;
+    button.dataset.search = `${location.name} ${location.detail}`.toLowerCase();
     button.setAttribute("role", "option"); button.setAttribute("aria-selected", "false");
     const node = document.createElement("span"); node.className = "timeline-node"; node.setAttribute("aria-hidden", "true");
     const copy = document.createElement("span"); copy.className = "timeline-copy";
@@ -264,13 +301,15 @@ function renderTimelineList() {
     const detail = document.createElement("small"); detail.textContent = location.detail;
     copy.append(name, detail);
     const services = document.createElement("span"); services.className = "service-stack";
-    locationBadges(location).forEach((badge) => { const item = document.createElement("span"); item.className = `service-badge ${badge.type}`; item.textContent = badge.label; services.appendChild(item); });
+    fillLocationBadges(services, location);
     button.append(node, copy, services);
-    button.addEventListener("click", () => selectTimelineLocation(location.id, { scroll: true }));
+    button.addEventListener("click", () => { selectTimelineLocation(location.id); ui.timelineDirectory.open = false; });
     ui.timelineList.appendChild(button);
   });
+  ui.timelineSearch.value = "";
+  ui.timelineDirectoryCount.textContent = `${state.locations.length} locations`;
   const current = timelineLocationForEndpoint(state[state.timelineRole]) || state.locations[0];
-  if (current) selectTimelineLocation(current.id, { moveMap: false, scroll: true });
+  if (current) selectTimelineLocation(current.id, { moveMap: false });
 }
 
 function paintCombinedLocations() {
@@ -280,7 +319,7 @@ function paintCombinedLocations() {
     const html = `<div class="combined-stop-marker">${badges.map((badge) => `<span class="${badge.type}">${badge.label}</span>`).join("")}</div>`;
     const width = Math.max(34, badges.length * 19 + 10);
     const marker = L.marker([location.lat, location.lng], { icon: L.divIcon({ className: "combined-location-icon", html, iconSize: [width, 34], iconAnchor: [width / 2, 17] }), zIndexOffset: -60 });
-    marker.on("click", () => selectTimelineLocation(location.id, { scroll: true }));
+    marker.on("click", () => selectTimelineLocation(location.id));
     return { marker, location };
   });
 }
@@ -295,7 +334,7 @@ function setTimelineRole(role) {
   state.timelineRole = role;
   document.querySelectorAll("[data-timeline-role]").forEach((button) => button.classList.toggle("active", button.dataset.timelineRole === role));
   const current = timelineLocationForEndpoint(state[role]);
-  if (current) selectTimelineLocation(current.id, { scroll: true });
+  if (current) selectTimelineLocation(current.id);
   else updateTimelineSelection(false);
 }
 
@@ -558,9 +597,29 @@ document.querySelectorAll("[data-trip]").forEach((button) => button.addEventList
 document.querySelectorAll("[data-pick-role]").forEach((button) => button.addEventListener("click", () => setPickRole(button.dataset.pickRole)));
 document.querySelectorAll("[data-timeline-role]").forEach((button) => button.addEventListener("click", () => {
   setTimelineRole(button.dataset.timelineRole);
-  updatePickHint(`Scroll to preview, then set your ${button.dataset.timelineRole === "from" ? "starting point" : "destination"}`);
+  updatePickHint(`Preview a stop, then set your ${button.dataset.timelineRole === "from" ? "starting point" : "destination"}`);
+}));
+document.querySelectorAll("[data-lens-place]").forEach((button) => button.addEventListener("click", () => {
+  const location = state.locations.find((item) => item.placeKeys.includes(button.dataset.lensPlace));
+  if (location) selectTimelineLocation(location.id);
 }));
 document.querySelectorAll("[data-view-tab]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.viewTab)));
+ui.timelinePrev.addEventListener("click", () => stepTimeline(-1));
+ui.timelineNext.addEventListener("click", () => stepTimeline(1));
+function filterTimelineStops(query) {
+  let visible = 0;
+  ui.timelineList.querySelectorAll(".timeline-stop").forEach((item) => {
+    item.hidden = Boolean(query) && !item.dataset.search.includes(query);
+    if (!item.hidden) visible += 1;
+  });
+  ui.timelineDirectoryCount.textContent = query ? `${visible} match${visible === 1 ? "" : "es"}` : `${state.locations.length} locations`;
+}
+ui.timelineSearch.addEventListener("input", () => filterTimelineStops(ui.timelineSearch.value.trim().toLowerCase()));
+ui.timelineDirectory.addEventListener("toggle", () => {
+  if (ui.timelineDirectory.open || !ui.timelineSearch.value) return;
+  ui.timelineSearch.value = "";
+  filterTimelineStops("");
+});
 ui.timelineConfirm.addEventListener("click", () => {
   const location = state.locations.find((item) => item.id === state.timelineActiveId);
   if (!location) return;
@@ -570,17 +629,6 @@ ui.timelineConfirm.addEventListener("click", () => {
   updatePickHint(`${location.name} set as ${role === "from" ? "your starting point" : "your destination"}`);
   if (role === "from") setTimelineRole("to");
 });
-ui.timelineList.addEventListener("scroll", () => {
-  if (state.timelineScrollFrame) return;
-  state.timelineScrollFrame = window.requestAnimationFrame(() => {
-    state.timelineScrollFrame = null;
-    const center = ui.timelineList.scrollTop + ui.timelineList.clientHeight / 2;
-    const closest = [...ui.timelineList.querySelectorAll(".timeline-stop")]
-      .map((item) => ({ item, distance: Math.abs(item.offsetTop + item.offsetHeight / 2 - center) }))
-      .sort((a, b) => a.distance - b.distance)[0]?.item;
-    if (closest && closest.dataset.locationId !== state.timelineActiveId) selectTimelineLocation(closest.dataset.locationId);
-  });
-}, { passive: true });
 document.querySelectorAll("[data-stop-layer]").forEach((button) => button.addEventListener("click", () => {
   state.stopLayer = button.dataset.stopLayer;
   document.querySelectorAll("[data-stop-layer]").forEach((item) => { const active = item === button; item.classList.toggle("active", active); item.setAttribute("aria-pressed", String(active)); });

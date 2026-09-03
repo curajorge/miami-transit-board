@@ -28,14 +28,20 @@
 
       <section class="timeline-controls" id="timelineControls" data-prototype="timeline" role="tabpanel" aria-labelledby="timelineTab">
         <div class="timeline-heading">
-          <div><p>PROTOTYPE 2</p><h2>Pick along Biscayne</h2></div>
-          <span>Scroll-linked map</span>
+          <div><p>ROUTE LENS</p><h2>Build your trip visually</h2></div>
+          <span>Preview first</span>
         </div>
-        <p class="timeline-intro">Choose From or To, then scroll the route. The map follows the highlighted location.</p>
+        <p class="timeline-intro">Choose Start or Destination. Preview a stop on the map, then set it when it feels right.</p>
         <div class="station-picker timeline-station-picker">
-          <button class="endpoint-card active" type="button" data-timeline-role="from" aria-label="Choose starting location from timeline"><span>FROM</span><strong id="timelineFromLabel">Whole Foods</strong><small id="timelineFromDetail">Edgewater</small></button>
+          <button class="endpoint-card active" type="button" data-timeline-role="from" aria-label="Choose starting location with Route Lens"><i aria-hidden="true">1</i><span>START</span><strong id="timelineFromLabel">Whole Foods</strong><small id="timelineFromDetail">Edgewater</small></button>
           <button class="swap-button" id="timelineSwapButton" type="button" aria-label="Swap starting place and destination">⇅</button>
-          <button class="endpoint-card" type="button" data-timeline-role="to" aria-label="Choose destination from timeline"><span>TO</span><strong id="timelineToLabel">Downtown</strong><small id="timelineToDetail">Bayfront</small></button>
+          <button class="endpoint-card" type="button" data-timeline-role="to" aria-label="Choose destination with Route Lens"><i aria-hidden="true">2</i><span>DESTINATION</span><strong id="timelineToLabel">Downtown</strong><small id="timelineToDetail">Bayfront</small></button>
+        </div>
+        <div class="lens-shortcuts" role="group" aria-label="Preview a familiar location">
+          <span>Jump to</span>
+          <button type="button" data-lens-place="home">Whole Foods</button>
+          <button type="button" data-lens-place="downtown">Downtown</button>
+          <button type="button" data-lens-place="brickell">Brickell</button>
         </div>
       </section>
 
@@ -90,6 +96,10 @@
         <div class="map-pick-tools" id="mapPickTools">
           <p id="pickHint">Tap any stop for arrivals or trip selection</p>
         </div>
+        <div class="lens-map-guide" data-prototype="timeline">
+          <span id="timelineMapRole">Choosing destination</span>
+          <strong>Tap a marker to preview it</strong>
+        </div>
         <div class="map-loading" id="mapLoading" role="status">
           <span class="spinner"></span>
           Finding trolleys…
@@ -98,11 +108,29 @@
 
       <section class="timeline-picker" data-prototype="timeline" aria-labelledby="timelineTitle">
         <header>
-          <div><p>NORTH · EDGEWATER</p><h2 id="timelineTitle">Biscayne stop timeline</h2></div>
-          <span>SOUTH ↓</span>
+          <div><p id="timelineRoleText">CHOOSING DESTINATION</p><h2 id="timelineTitle">Your stop preview</h2></div>
+          <span id="timelinePosition">— of —</span>
         </header>
-        <div class="timeline-list" id="timelineList" role="listbox" aria-label="Combined transit locations" tabindex="0"></div>
+        <article class="lens-stop-card" aria-live="polite">
+          <span class="lens-stop-node" aria-hidden="true"></span>
+          <div class="lens-stop-copy">
+            <span>Previewing</span>
+            <h3 id="timelineSelectedName">Choose a stop</h3>
+            <p id="timelineSelectedDetail">Tap a map marker or browse the route.</p>
+            <div class="service-stack" id="timelineSelectedBadges" aria-label="Services at this location"></div>
+          </div>
+        </article>
+        <div class="lens-stepper" aria-label="Move one stop along the route">
+          <button id="timelinePrev" type="button"><span>↑</span><strong>Previous</strong><small>Toward Edgewater</small></button>
+          <button id="timelineNext" type="button"><strong>Next</strong><small>Toward Brickell</small><span>↓</span></button>
+        </div>
         <button class="timeline-confirm" id="timelineConfirm" type="button" disabled>Choose a location</button>
+        <details class="stop-directory" id="timelineDirectory">
+          <summary><span>Browse all stops</span><small id="timelineDirectoryCount">Loading locations…</small></summary>
+          <label class="stop-search"><span class="sr-only">Search stops</span><input id="timelineSearch" type="search" inputmode="search" autocomplete="off" placeholder="Search street or service" /></label>
+          <div class="timeline-list" id="timelineList" role="listbox" aria-label="Combined transit locations"></div>
+        </details>
+        <p class="lens-note">Nothing changes until you tap the yellow set button.</p>
       </section>
 
       <section class="status-sheet" aria-live="polite">
