@@ -1,8 +1,10 @@
 .go-panel { --go-ink: #123b43; --go-teal: #007a72; --go-mist: #e8f4f1; color: var(--go-ink); padding: 22px 18px 18px; background: #f5faf9; }
 .go-panel[hidden] { display: none; }
 .go-panel button, .go-chooser button { font-family: inherit; cursor: pointer; }
+.go-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.go-heading .app-logo { flex: 0 0 52px; border-radius: 12px; display: block; }
 .go-heading h1 { margin: 0; font-size: 28px; line-height: 1.12; letter-spacing: -.055em; font-weight: 850; }
-.go-heading p { margin: 6px 0 20px; color: #53716e; font-size: 13px; }
+.go-heading p { margin: 6px 0 0; color: #53716e; font-size: 13px; }
 .go-endpoints { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 38px; }
 .go-endpoints > button:not(.go-swap) { display: flex; align-items: flex-start; gap: 8px; min-height: 86px; padding: 13px 10px; border: 1px solid #bcd7d1; border-radius: 12px; background: white; text-align: left; color: #123b43; }
 .go-endpoints > button > span:nth-child(2) { flex: 1; min-width: 0; }

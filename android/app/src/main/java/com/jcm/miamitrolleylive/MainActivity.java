@@ -82,8 +82,8 @@ public class MainActivity extends Activity {
 
     private WebResourceResponse assetResponse(String path) {
         String name = path.equals("/") ? "index.html" : path.substring(1);
-        if (!name.matches("(index\\.html|styles\\.css|engine\\.js|app\\.js|go\\.js|go\\.css|bus-stops\\.js|trolley-stops\\.js|vendor/leaflet\\.css|vendor/leaflet\\.js)")) return error("Not found");
-        String mime = name.endsWith(".html") ? "text/html" : name.endsWith(".css") ? "text/css" : "text/javascript";
+        if (!name.matches("(index\\.html|styles\\.css|engine\\.js|app\\.js|go\\.js|go\\.css|bus-stops\\.js|trolley-stops\\.js|vendor/leaflet\\.css|vendor/leaflet\\.js|assets/brand/miami-transit-logo-v1\\.png)")) return error("Not found");
+        String mime = name.endsWith(".png") ? "image/png" : name.endsWith(".html") ? "text/html" : name.endsWith(".css") ? "text/css" : "text/javascript";
         try { return new WebResourceResponse(mime, "UTF-8", getAssets().open("web/" + name)); }
         catch (Exception ignored) { return error("Missing app asset"); }
     }

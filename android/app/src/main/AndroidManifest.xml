@@ -5,6 +5,8 @@
     <application
         android:allowBackup="false"
         android:label="Miami Transit"
+        android:icon="@drawable/transit_logo"
+        android:roundIcon="@drawable/transit_logo"
         android:usesCleartextTraffic="false"
         android:theme="@style/AppTheme">
         <activity

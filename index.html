@@ -8,6 +8,7 @@
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'" />
     <title>Miami Transit Board</title>
+    <link rel="icon" type="image/png" href="assets/brand/miami-transit-logo-v1.png" />
     <link rel="stylesheet" href="vendor/leaflet.css" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="go.css" />
@@ -15,7 +16,7 @@
   <body>
     <main class="app-shell">
       <section id="goPanel" class="go-panel" aria-label="Plan your ride">
-        <div class="go-heading"><h1>Plan your ride</h1><p>Biscayne trolley + Metrobus 3 &amp; 9</p></div>
+        <div class="go-heading"><img class="app-logo" src="assets/brand/miami-transit-logo-v1.png" alt="Miami Transit" width="52" height="52" /><div><h1>Plan your ride</h1><p>Biscayne trolley + Metrobus 3 &amp; 9</p></div></div>
         <div class="go-endpoints">
           <button type="button" data-go-role="from" aria-haspopup="dialog"><span class="go-node">A</span><span><small>From</small><strong id="goFrom">Whole Foods</strong></span></button>
           <button type="button" data-go-role="to" aria-haspopup="dialog"><span class="go-node go-node-end">B</span><span><small>To</small><strong id="goTo">Downtown</strong></span></button>

@@ -8,10 +8,11 @@ const execFileAsync = promisify(execFile);
 const PORT = Number(process.env.PORT || 4173);
 const ROOT = __dirname;
 const TRACKER_URL = "https://publictransportation.tsomobile.com/rest/PubTrans/GetModuleInfoPublic";
-const MIME = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json; charset=utf-8" };
+const MIME = { ".png": "image/png", ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json; charset=utf-8" };
 const BUS_STOPS = { "3": { south: "6706", north: "103" }, "9": { south: "6774", north: "6635" } };
 const PUBLIC_FILES = new Set(["index.html", "styles.css", "engine.js", "app.js", "go.js", "go.css", "bus-stops.js", "trolley-stops.js", "vendor/leaflet.css", "vendor/leaflet.js"]);
 const responseCache = new Map();
+PUBLIC_FILES.add("assets/brand/miami-transit-logo-v1.png");
 const inFlight = new Map();
 
 function send(res, status, body, type = "application/json; charset=utf-8") {
