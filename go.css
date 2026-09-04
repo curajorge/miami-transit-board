@@ -93,15 +93,39 @@ body[data-view="go"] .app-shell > .status-sheet { display: none; }
 .go-map-pin b { min-width: 17px; font: 800 10px/18px sans-serif; text-align: center; color: #075e59; }
 .go-selected .go-map-pin { border-color: white; background: #007a72; box-shadow: 0 0 0 4px #007a723d; }
 .go-selected .go-map-pin b { color: white; }
+.go-panel button:focus-visible, .go-chooser button:focus-visible { outline: 3px solid #176a9b; outline-offset: 2px; }
+.go-endpoints strong { white-space: normal; line-height: 1.3; }
+.go-shortcuts button, .go-preferences button { min-height: 44px; }
+.go-steps li { grid-template-columns: 65px minmax(0, 1fr); gap: 19px; }
+.go-steps time { white-space: nowrap; font-size: 11px; }
+.go-steps li::before { left: 70px; }
+.go-steps li:not(:last-child)::after { left: 74px; }
+.go-option { flex-wrap: wrap; }
+.go-option[aria-pressed="true"] { border-color: #007a72; background: #edf8f4; box-shadow: inset 3px 0 #007a72; }
+.go-option-select { flex-basis: 100%; text-align: right; color: #00736b; font-size: 12px; font-weight: 750; }
+.go-chooser-roles { display: flex; gap: 6px; padding: 0 18px 10px; flex-shrink: 0; }
+.go-chooser-roles button { flex: 1; min-height: 40px; border-radius: 8px; border: 1px solid #bfd5ca; background: white; color: #285f59; font-size: 12px; }
+.go-chooser-roles button[aria-pressed="true"] { color: white; background: #007a72; border-color: #007a72; }
+.go-map-frame { position: relative; flex: 0 1 190px; min-height: 100px; }
+.go-map-frame #goMap { height: 100%; min-height: 0; }
+.go-crosshair { position: absolute; pointer-events: none; z-index: 450; top: 50%; left: 50%; width: 22px; height: 22px; transform: translate(-50%, -50%); border: 2px solid #123b43; border-radius: 50%; box-shadow: 0 0 0 2px white; }
+.go-crosshair::after { content: ""; position: absolute; inset: 7px; background: #123b43; border-radius: 50%; }
+.go-map-actions { display: flex; gap: 8px; padding: 8px 18px 0; flex-shrink: 0; }
+.go-map-actions button { flex: 1; min-height: 40px; border: 1px solid #007a72; border-radius: 8px; background: white; color: #00736b; font-size: 12px; font-weight: 700; }
+.go-map-actions button:first-child { background: #007a72; color: white; }
+.go-map-caption { flex-shrink: 0; padding-top: 8px; padding-bottom: 8px; }
+.go-chooser header, .go-search { flex-shrink: 0; }
+.go-marker .go-map-pin { background: white; border-color: #9fbbb5; box-shadow: 0 1px 3px #123b4326; }
+.go-marker.go-selected .go-map-pin { background: #007a72; border-color: white; }
 @media (max-width: 350px) { .go-panel { padding: 19px 13px 16px; } .go-heading h2 { font-size: 25px; } .go-ticket-head h3 { font-size: 26px; } .go-ticket-facts { padding: 12px 14px; } .go-ticket-facts strong { font-size: 14px; } .go-chooser header { padding-top: 14px; } #goMap { flex-basis: 170px; } }
 /* Leave room for search results and confirmation when the keyboard is open. */
 @media (max-height: 600px) {
   .go-chooser { height: 100dvh; max-height: 100dvh; }
   .go-chooser header { padding-top: 10px; }
-  #goMap { min-height: 80px; flex-basis: 100px; }
+  .go-map-frame { min-height: 60px; flex-basis: 100px; }
   .go-chooser footer { padding-top: 8px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
 }
 @media (max-height: 450px) {
-  #goMap, .go-map-caption { display: none; }
+  .go-map-frame, .go-map-caption, .go-map-actions { display: none; }
   .go-chooser header p { display: none; }
 }

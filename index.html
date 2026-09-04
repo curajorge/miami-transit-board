@@ -38,7 +38,7 @@
         <div class="go-shortcuts" aria-label="Choose a familiar destination"><button type="button" data-go-place="home">Whole Foods</button><button type="button" data-go-place="downtown">Downtown</button><button type="button" data-go-place="brickell">Brickell</button></div>
         <div class="go-preferences" role="group" aria-label="Choose a ride preference"><button type="button" data-go-preference="soonest" aria-pressed="true">Arrive sooner</button><button type="button" data-go-preference="free" aria-pressed="false">Free ride</button><button type="button" data-go-preference="walk" aria-pressed="false">Less walking</button></div>
         <div id="goJourney" aria-live="polite"></div>
-        <div class="go-options-heading"><h3>Your other options</h3><span>Estimated arrival</span></div>
+        <div class="go-options-heading"><h3>Choose your ride</h3><span>Tap to compare</span></div>
         <div id="goOptions" class="go-options"></div>
         <button class="go-map-open" id="goMapOpen" type="button"><span aria-hidden="true">⌖</span> Explore stops on the map</button>
         <div class="go-freshness"><p id="goFreshness">Checking live arrivals…</p><button type="button" id="goRefresh">Refresh</button></div>
@@ -47,9 +47,11 @@
 
       <dialog id="goChooser" class="go-chooser" aria-labelledby="goChooserTitle">
         <header><div><h2 id="goChooserTitle">Where are you going?</h2><p>Tap a place, then confirm below.</p></div><button type="button" id="goClose" aria-label="Close place chooser">×</button></header>
+        <div class="go-chooser-roles" role="group" aria-label="Assign selection"><button type="button" data-go-assign="from">From · starting point</button><button type="button" data-go-assign="to">To · destination</button></div>
         <label class="go-search"><span class="sr-only">Find a place or stop</span><input type="search" id="goSearch" placeholder="Find a place, street or bus…" autocomplete="off" /></label>
-        <div id="goMap" aria-label="Map of combined trolley and bus stops"></div>
-        <p class="go-map-caption">One point can serve several routes. Tap to preview.</p>
+        <div class="go-map-frame"><div id="goMap" aria-label="Map of combined trolley and bus stops"></div><span class="go-crosshair" aria-hidden="true"></span></div>
+        <div class="go-map-actions"><button type="button" id="goUsePoint">Use this map point</button><button type="button" id="goNearby">Nearby stops</button></div>
+        <p class="go-map-caption" id="goMapHint">Move the map under the crosshair, or tap a stop.</p>
         <div id="goPlaceList" class="go-place-list" aria-label="Places and transit stops"></div>
         <footer><div><small id="goPreviewLabel">Preview</small><strong id="goPreviewName">Choose a place</strong><span id="goPreviewServices"></span></div><button type="button" id="goConfirm" disabled>Set destination</button></footer>
       </dialog>

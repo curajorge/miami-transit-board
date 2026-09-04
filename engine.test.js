@@ -64,3 +64,20 @@ test("preserves a selected Metrobus route and stop", () => { const p=planTrip({f
 test("bus stop planning still works when trolley tracker stops are unavailable", () => { const p=planTrip({from:"bus:3:south:6706",to:"bus:3:south:3-downtown",stops:[],busStops,buses:[{route:"3",stop:"6706",minutes:[6]}],now:NOW}); assert.deepEqual(p.options.map((o)=>o.id),["bus-3"]); });
 test("Downtown return still compares northbound buses when the trolley tracker is unavailable", () => { const p=planTrip({from:"place:downtown",to:"place:home",stops:[],busStops,buses:[{route:"9",stop:"9-downtown-north",minutes:[4]}],now:NOW}); assert.deepEqual(new Set(p.options.map((o)=>o.id)),new Set(["bus-3","bus-9"])); assert.equal(p.direction,"north"); assert.equal(p.best.id,"bus-9"); });
 test("timeline locations compare trolley and nearby bus services", () => { const locations=[{id:"edgewater",name:"Edgewater",lat:25.8043,lng:-80.1917},{id:"downtown",name:"Downtown",lat:25.7732,lng:-80.1875}]; const p=planTrip({from:"location:edgewater",to:"location:downtown",locations,stops,busStops,now:NOW}); assert.deepEqual(new Set(p.options.map((o)=>o.id)),new Set(["trolley","bus-3","bus-9"])); assert.equal(p.direction,"south"); });
+test("V3 map origin changes walking and leave time without moving the boarding stop", () => {
+  const locations = [{id:"near",name:"Near the stop",lat:25.804445,lng:-80.191184}, {id:"far",name:"Farther west",lat:25.804445,lng:-80.197}];
+  const option = (id) => planTrip({from:`location:${id}`,to:"place:downtown",locations,stops,busStops,buses:[{route:"9",stop:"6774",minutes:[15]}],now:NOW}).options.find(o=>o.id==="bus-9");
+  const near = option("near"), far = option("far");
+  assert.equal(near.boarding, far.boarding);
+  assert.ok(far.walkToStop > near.walkToStop);
+  assert.ok(far.leaveIn < near.leaveIn);
+  assert.equal(far.data, "live-bus");
+});
+test("V3 map endpoints support return trips without mutating input locations", () => {
+  const locations = [{id:"map-home",name:"Map point",lat:25.8043,lng:-80.1917}];
+  const before = JSON.stringify(locations);
+  const trip = planTrip({from:"place:downtown",to:"location:map-home",locations,stops,busStops,now:NOW});
+  assert.equal(trip.direction, "north");
+  assert.deepEqual(new Set(trip.options.map(o=>o.id)),new Set(["trolley","bus-3","bus-9"]));
+  assert.equal(JSON.stringify(locations), before);
+});
