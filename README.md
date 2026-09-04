@@ -11,16 +11,15 @@ No AI is used for trip recommendations. Every recommendation comes from explicit
 
 - Live City of Miami Biscayne trolley positions, refreshed every 30 seconds
 - Metrobus 3 and 9 arrivals for the common Home-to-Downtown trip in both directions
-- Leave-now and arrive-by planning for Downtown and Brickell
+- Leave-now planning for Downtown and Brickell
 - Direction-aware return trips
 - All 60 Biscayne trolley stops, with a bundled fallback when the public tracker is unavailable
-- A switchable Route Lens prototype with explicit map previews, one-stop controls, familiar-place shortcuts, and searchable stops
-- A third, independent **Go** prototype: a journey ticket, ride preferences, and a map-and-search place chooser with explicit confirmation. Board and Route Lens remain available for comparison.
+- One focused journey interface: ride comparisons, expandable steps, and explicit map/search confirmation
 - Combined map points when Trolley and Metrobus serve the same physical location
 - Metrobus 3 and 9 stops generated from Miami-Dade GTFS and scoped to the Edgewater–Downtown corridor
-- Map filters organized by Trolley, Bus 3, and Bus 9
-- Map-based From/To selection that preserves service, direction, and stop
-- Clear live, stale, headway, and schedule-estimate labels
+- Nearest-stop browsing from a selected map point, with approximate walking distances
+- Map-based From/To selection with direction-aware boarding
+- Clear live-data age, rough-estimate labels, and tight-connection warnings
 - An Android WebView wrapper with only the Internet permission
 
 See [Transit data sources](DATA_SOURCES.md) for the provenance and limitations of each feed.
@@ -67,13 +66,21 @@ Review the generated diff and run `npm run verify` before committing it.
 | Path | Purpose |
 | --- | --- |
 | `engine.js` | Deterministic trip comparison and timing rules |
-| `app.js` | Map, public-feed adapters, and interface state |
-| `go.js`, `go.css` | Isolated V3 journey interface and place chooser |
+| `app.js` | Bounded public-feed requests, validation, and merged stop catalog |
+| `go.js`, `go.css` | Single journey interface and place chooser |
 | `server.js` | Local static server and constrained feed proxies |
 | `bus-stops.js` | Generated full Route 3 and 9 catalog; the app selects the Edgewater–Downtown segment |
 | `trolley-stops.js` | Last-known Biscayne stop catalog used only when the live route feed is unavailable |
 | `android/` | Minimal Android WebView wrapper |
 | `tools/` | Reproducible data-generation utilities |
+
+## Version history and release scope
+
+Version 0.2.0 makes the chosen V3 design the only interface. V1 (Board), V2 (Route Lens), and the comparison tabs remain recoverable at commit [4df9501](https://github.com/curajorge/miami-transit-board/commit/4df9501). Their HTML, styles, and background map are not shipped in the current app.
+
+The Android build above is a debug-signed build for direct device testing, not an app-store release. Public distribution still requires an owner-controlled release signing key and store review. A public web deployment requires HTTPS and appropriate upstream proxy capacity. Trip selections currently reset on reload.
+
+Times remain estimates: walking uses straight-line distance, ride durations use stop counts, and missing live arrivals fall back to a 15-minute waiting assumption. The app does not validate service hours or plan transfers. See DATA_SOURCES.md before relying on it for important trips.
 
 ## Contributing and security
 
@@ -81,6 +88,6 @@ Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before openin
 
 ## Disclaimer
 
-This is an independent prototype, not an official City of Miami or Miami-Dade County application. Transit information can be late, stale, incomplete, or unavailable. Allow extra time for important trips.
+This is an independent application, not an official City of Miami or Miami-Dade County application. Transit information can be late, stale, incomplete, or unavailable. Allow extra time for important trips.
 
 Licensed under the [MIT License](LICENSE).

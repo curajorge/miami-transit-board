@@ -1,13 +1,13 @@
 {
   "name": "miami-transit-board",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "A deterministic, mobile-first decision board for Miami's Biscayne trolley and nearby Metrobus routes.",
   "license": "MIT",
   "scripts": {
     "start": "node server.js",
     "check": "node --check app.js && node --check go.js && node --check engine.js && node --check server.js && node --check bus-stops.js && node --check trolley-stops.js && node --check tools/extract-bus-stops.mjs",
-    "test": "node engine.test.js",
+    "test": "node --test engine.test.js app.test.js",
     "verify": "npm run check && npm test"
   },
   "engines": {

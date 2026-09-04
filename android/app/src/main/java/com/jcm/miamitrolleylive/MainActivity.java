@@ -44,7 +44,7 @@ public class MainActivity extends Activity {
         settings.setAllowContentAccess(false);
         settings.setGeolocationEnabled(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString("MiamiTransitBoard/0.1 (+https://github.com/curajorge/miami-transit-board)");
+        settings.setUserAgentString("MiamiTransitBoard/0.2 (+https://github.com/curajorge/miami-transit-board)");
 
         webView.setWebViewClient(new WebViewClient() {
             @Override

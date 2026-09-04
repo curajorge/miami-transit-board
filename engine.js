@@ -95,7 +95,7 @@
     const candidates = vehicles.map((vehicle) => {
       const point = { lat: Number(vehicle.Lat), lng: Number(vehicle.Lng) }, age = now.getTime() / 1000 - Number(vehicle.Tim), distance = haversineMiles(point, origin) * 1.25;
       const correctSide = direction === "south" ? point.lat >= origin.lat - .002 : point.lat <= origin.lat + .002;
-      return { vehicle, distance, valid: age < 240 && distance < 4.5 && correctSide && headingMatches(Number(vehicle.Hea)) };
+      return { vehicle, distance, valid: age >= 0 && age < 240 && distance < 4.5 && correctSide && headingMatches(Number(vehicle.Hea)) };
     }).filter((item) => item.valid).sort((a, b) => a.distance - b.distance);
     if (!candidates.length) return { minutes: 15, source: "scheduled", vehicle: null, confidence: "Fair" };
     const closest = candidates[0];

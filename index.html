@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#0a558c" />
+    <meta name="theme-color" content="#007a72" />
     <meta name="description" content="Live Biscayne trolley and Metrobus guidance between Edgewater and Downtown Miami." />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'" />
@@ -12,24 +12,10 @@
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="go.css" />
   </head>
-  <body data-view="board">
+  <body>
     <main class="app-shell">
-      <header class="topbar">
-        <div>
-          <p class="eyebrow" id="tripEyebrow">BISCAYNE · WHOLE FOODS SOUTHBOUND</p>
-          <h1>Your best <span>ride</span></h1>
-        </div>
-      </header>
-
-      <nav class="prototype-switch" aria-label="Interface prototypes" role="tablist">
-        <span>TEST VIEWS</span>
-        <button class="active" id="boardTab" type="button" role="tab" data-view-tab="board" aria-selected="true" aria-controls="boardPlanner">Board</button>
-        <button id="timelineTab" type="button" role="tab" data-view-tab="timeline" aria-selected="false" aria-controls="timelineControls">Stop timeline</button>
-        <button id="goTab" type="button" role="tab" data-view-tab="go" aria-selected="false" aria-controls="goPanel">Go · V3</button>
-      </nav>
-
-      <section id="goPanel" class="go-panel" role="tabpanel" aria-labelledby="goTab" hidden>
-        <div class="go-heading"><h2>Plan your ride</h2><p>Biscayne trolley + Metrobus 3 &amp; 9</p></div>
+      <section id="goPanel" class="go-panel" aria-label="Plan your ride">
+        <div class="go-heading"><h1>Plan your ride</h1><p>Biscayne trolley + Metrobus 3 &amp; 9</p></div>
         <div class="go-endpoints">
           <button type="button" data-go-role="from" aria-haspopup="dialog"><span class="go-node">A</span><span><small>From</small><strong id="goFrom">Whole Foods</strong></span></button>
           <button type="button" data-go-role="to" aria-haspopup="dialog"><span class="go-node go-node-end">B</span><span><small>To</small><strong id="goTo">Downtown</strong></span></button>
@@ -38,7 +24,7 @@
         <div class="go-shortcuts" aria-label="Choose a familiar destination"><button type="button" data-go-place="home">Whole Foods</button><button type="button" data-go-place="downtown">Downtown</button><button type="button" data-go-place="brickell">Brickell</button></div>
         <div class="go-preferences" role="group" aria-label="Choose a ride preference"><button type="button" data-go-preference="soonest" aria-pressed="true">Arrive sooner</button><button type="button" data-go-preference="free" aria-pressed="false">Free ride</button><button type="button" data-go-preference="walk" aria-pressed="false">Less walking</button></div>
         <div id="goJourney" aria-live="polite"></div>
-        <div class="go-options-heading"><h3>Compare rides</h3><span>Estimated arrival</span></div>
+        <div class="go-options-heading"><h2>Compare rides</h2><span>Estimated arrival</span></div>
         <div id="goOptions" class="go-options"></div>
         <button class="go-map-open" id="goMapOpen" type="button"><span aria-hidden="true">⌖</span> Explore stops on the map</button>
         <div class="go-freshness"><p id="goFreshness">Checking live arrivals…</p><button type="button" id="goRefresh">Refresh</button></div>
@@ -57,131 +43,9 @@
         <footer><div><small id="goPreviewLabel">Preview</small><strong id="goPreviewName">Choose a place</strong><span id="goPreviewServices"></span></div><button type="button" id="goConfirm" disabled>Set destination</button></footer>
       </dialog>
 
-      <section class="timeline-controls" id="timelineControls" data-prototype="timeline" role="tabpanel" aria-labelledby="timelineTab">
-        <div class="timeline-heading">
-          <div><p>ROUTE LENS</p><h2>Build your trip visually</h2></div>
-          <span>Preview first</span>
-        </div>
-        <p class="timeline-intro">Choose Start or Destination. Preview a stop on the map, then set it when it feels right.</p>
-        <div class="station-picker timeline-station-picker">
-          <button class="endpoint-card active" type="button" data-timeline-role="from" aria-label="Choose starting location with Route Lens"><i aria-hidden="true">1</i><span>START</span><strong id="timelineFromLabel">Whole Foods</strong><small id="timelineFromDetail">Edgewater</small></button>
-          <button class="swap-button" id="timelineSwapButton" type="button" aria-label="Swap starting place and destination">⇅</button>
-          <button class="endpoint-card" type="button" data-timeline-role="to" aria-label="Choose destination with Route Lens"><i aria-hidden="true">2</i><span>DESTINATION</span><strong id="timelineToLabel">Downtown</strong><small id="timelineToDetail">Bayfront</small></button>
-        </div>
-        <div class="lens-shortcuts" role="group" aria-label="Preview a familiar location">
-          <span>Jump to</span>
-          <button type="button" data-lens-place="home">Whole Foods</button>
-          <button type="button" data-lens-place="downtown">Downtown</button>
-          <button type="button" data-lens-place="brickell">Brickell</button>
-        </div>
-      </section>
-
-      <section class="planner" id="boardPlanner" data-prototype="board" role="tabpanel" aria-labelledby="boardTab">
-        <h2 id="plannerTitle">Where are you going?</h2>
-        <div class="quick-trips" aria-label="Common destinations">
-          <button type="button" data-trip="downtown">Downtown</button>
-          <button type="button" data-trip="brickell">Brickell</button>
-          <button type="button" data-pick-role="to">Choose on map</button>
-        </div>
-        <div class="station-picker">
-          <button class="endpoint-card" type="button" data-pick-role="from" aria-label="Choose starting stop on map"><span>FROM</span><strong id="fromLabel">Whole Foods</strong><small id="fromDetail">Edgewater</small></button>
-          <button class="swap-button" id="swapButton" type="button" aria-label="Swap starting place and destination">⇅</button>
-          <button class="endpoint-card" type="button" data-pick-role="to" aria-label="Choose destination stop on map"><span>TO</span><strong id="toLabel">Downtown</strong><small id="toDetail">Bayfront</small></button>
-        </div>
-        <button class="return-home" type="button" data-trip="home">Reverse trip to go home</button>
-        <div class="time-row">
-          <button class="time-mode active" type="button" data-mode="now">Leave now</button>
-          <button class="time-mode" type="button" data-mode="arrive">Arrive by</button>
-          <input id="arriveTime" type="time" aria-label="Desired arrival time" hidden />
-        </div>
-        <article class="decision-card" id="decisionCard" aria-live="polite">
-          <p class="decision-kicker" id="decisionKicker">Calculating the best option…</p>
-          <div class="decision-main"><strong id="decisionTime">—</strong><span id="decisionAction">Checking live vehicles</span></div>
-          <p class="decision-route" id="decisionRoute"></p>
-          <p class="decision-arrival" id="decisionArrival"></p>
-          <details>
-            <summary>Why this option?</summary>
-            <p id="decisionReason"></p>
-            <div id="optionDetails"></div>
-          </details>
-        </article>
-        <section class="arrival-board" aria-label="Upcoming options">
-          <div><span>OPTION</span><span>LEAVES</span><span>ARRIVES</span></div>
-          <div id="boardRows"></div>
-          <p>Live trolley and Metrobus estimates include walking time and a boarding cushion.</p>
-        </section>
-      </section>
-
-      <section class="stop-toolbar" data-prototype="board" aria-labelledby="stopsTitle">
-        <div><h2 id="stopsTitle">Edgewater–Downtown stops</h2><span id="visibleStopCount"></span></div>
-        <div class="stop-filters" role="group" aria-label="Filter stops by service">
-          <button class="active" type="button" data-stop-layer="all" aria-pressed="true">All</button>
-          <button type="button" data-stop-layer="trolley" aria-pressed="false"><i class="legend trolley"></i>Trolley</button>
-          <button type="button" data-stop-layer="3" aria-pressed="false"><i class="legend bus3"></i>Bus 3</button>
-          <button type="button" data-stop-layer="9" aria-pressed="false"><i class="legend bus9"></i>Bus 9</button>
-        </div>
-      </section>
-
-      <section class="map-wrap" aria-label="Transit stops and live Biscayne trolley map">
-        <div id="map"></div>
-        <div class="map-pick-tools" id="mapPickTools">
-          <p id="pickHint">Tap any stop for arrivals or trip selection</p>
-        </div>
-        <div class="lens-map-guide" data-prototype="timeline">
-          <span id="timelineMapRole">Choosing destination</span>
-          <strong>Tap a marker to preview it</strong>
-        </div>
-        <div class="map-loading" id="mapLoading" role="status">
-          <span class="spinner"></span>
-          Finding trolleys…
-        </div>
-      </section>
-
-      <section class="timeline-picker" data-prototype="timeline" aria-labelledby="timelineTitle">
-        <header>
-          <div><p id="timelineRoleText">CHOOSING DESTINATION</p><h2 id="timelineTitle">Your stop preview</h2></div>
-          <span id="timelinePosition">— of —</span>
-        </header>
-        <article class="lens-stop-card" aria-live="polite">
-          <span class="lens-stop-node" aria-hidden="true"></span>
-          <div class="lens-stop-copy">
-            <span>Previewing</span>
-            <h3 id="timelineSelectedName">Choose a stop</h3>
-            <p id="timelineSelectedDetail">Tap a map marker or browse the route.</p>
-            <div class="service-stack" id="timelineSelectedBadges" aria-label="Services at this location"></div>
-          </div>
-        </article>
-        <div class="lens-stepper" aria-label="Move one stop along the route">
-          <button id="timelinePrev" type="button"><span>↑</span><strong>Previous</strong><small>Toward Edgewater</small></button>
-          <button id="timelineNext" type="button"><strong>Next</strong><small>Toward Brickell</small><span>↓</span></button>
-        </div>
-        <button class="timeline-confirm" id="timelineConfirm" type="button" disabled>Choose a location</button>
-        <details class="stop-directory" id="timelineDirectory">
-          <summary><span>Browse all stops</span><small id="timelineDirectoryCount">Loading locations…</small></summary>
-          <label class="stop-search"><span class="sr-only">Search stops</span><input id="timelineSearch" type="search" inputmode="search" autocomplete="off" placeholder="Search street or service" /></label>
-          <div class="timeline-list" id="timelineList" role="listbox" aria-label="Combined transit locations"></div>
-        </details>
-        <p class="lens-note">Nothing changes until you tap the yellow set button.</p>
-      </section>
-
-      <section class="status-sheet" aria-live="polite">
-        <div class="grabber" aria-hidden="true"></div>
-        <div class="status-row">
-          <div>
-            <p class="status-label"><span class="live-dot" id="liveDot"></span><span id="statusLabel">Connecting</span></p>
-            <p class="trolley-count"><strong id="trolleyCount">—</strong> trolleys on route</p>
-          </div>
-          <button class="refresh-button" id="refreshButton" type="button">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5m-5 4a8.1 8.1 0 0 0 15.5 2m.5 5v-5h-5" /></svg>
-            Refresh
-          </button>
-        </div>
-        <p class="updated" id="updatedText">Waiting for live vehicle positions</p>
-        <p class="error-message" id="errorMessage" hidden></p>
-        <p class="source-note">City trolley positions and Miami-Dade bus estimates. Independent, unofficial app.</p>
-      </section>
     </main>
 
+    <noscript>This app needs JavaScript to show transit stops and arrival estimates.</noscript>
     <script src="vendor/leaflet.js"></script>
     <script src="bus-stops.js"></script>
     <script src="trolley-stops.js"></script>

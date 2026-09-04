@@ -1,4 +1,4 @@
-/* Prototype 3 owns its trip and map. Shared inputs are read-only transit feeds. */
+/* Single rider interface; deterministic planning and read-only transit feeds. */
 (() => {
   const $ = (id) => document.getElementById(id);
   const trip = { from: "place:home", to: "place:downtown", preference: "soonest", selected: null, role: "to", preview: null, map: null, markers: [], opener: null };
@@ -47,7 +47,7 @@
       const ride = chooseOption(plan), rough = !["live", "live-bus"].includes(ride.data), tight = ride.wait < ride.walkToStop + ride.buffer;
       const ticket = el("article", "go-ticket"), head = el("div", "go-ticket-head");
       head.append(el("p", "", trip.selected ? "Your selected ride" : trip.preference === "free" ? ride.cost === 0 ? "Your free ride" : "Lowest-fare comfortable ride" : trip.preference === "walk" ? "Your shortest walk" : "Your earliest estimated arrival"));
-      head.append(el("h3", "", tight ? "This ride may be tight" : rough ? `Rough trip: ~${ride.arrivalMinutes} min` : ride.leaveIn <= 0 ? "Time to head out" : `Head out in ${ride.leaveIn} min`));
+      head.append(el("h2", "", tight ? "This ride may be tight" : rough ? `Rough trip: ~${ride.arrivalMinutes} min` : ride.leaveIn <= 0 ? "Time to head out" : `Head out in ${ride.leaveIn} min`));
       head.append(el("p", "go-ticket-service", `${ride.label} · ${plan.direction}bound`)); ticket.append(head);
       const facts = el("div", "go-ticket-facts");
       [["Estimated arrival", tight ? "Uncertain" : `~${time(plus(now, ride.arrivalMinutes))}`], ["Walking", `${ride.walkToStop + ride.walkFromStop} min`], ["Fare", ride.cost ? `$${ride.cost.toFixed(2)}` : "Free"]].forEach(([label, value]) => { const fact = el("div"); fact.append(el("span", "", label), el("strong", "", value)); facts.append(fact); });
@@ -77,6 +77,7 @@
     const trolleyAge = latest ? Math.max(0, Math.floor((now.getTime() / 1000 - latest) / 60)) : null;
     const busAge = Math.max(0, Math.floor((now.getTime() - busReceivedAt) / 60000));
     $("goFreshness").textContent = `${trolleyAge == null ? "No live trolley positions" : `Trolley positions ${trolleyAge < 1 ? "updated within a minute" : `${trolleyAge} min old`}`}. ${state.buses.length && busAge < 2 ? `Bus arrivals checked ${busAge < 1 ? "within a minute" : `${busAge} min ago`}` : "Live bus arrivals unavailable"}.`;
+    if (state.lastError) $("goFreshness").textContent += ` ${state.lastError}`;
     $("goRefresh").disabled = state.refreshing;
     if (focusedRide) document.querySelector(`[data-ride="${focusedRide}"]`)?.focus({ preventScroll: true });
     if (focusedSteps) $("goStepsToggle")?.focus({ preventScroll: true });
@@ -169,8 +170,7 @@
   $("goChooser").addEventListener("close", () => trip.opener?.focus());
   $("goConfirm").addEventListener("click", () => { if (!trip.preview || $("goConfirm").disabled) return; if (trip.preview.id?.startsWith("go-map-")) mapPoints.set(trip.preview.id, { ...trip.preview }); trip[trip.role] = trip.preview.value; for (const [id] of mapPoints) if (![trip.from, trip.to].includes(`location:${id}`)) mapPoints.delete(id); trip.selected = null; $("goChooser").close(); render(); });
   $("goRefresh").addEventListener("click", async () => { $("goRefresh").disabled = true; await refreshVehicles(); render(); });
-  window.addEventListener("transit-data", () => { currentBuses(new Date()); if (state.view === "go") render(); });
-  window.setInterval(() => { if (state.view === "go" && !$("goChooser").open) render(); }, 15000);
-  window.TransitGo = { enter: render };
-  if (state.view === "go") render();
+  window.addEventListener("transit-data", () => { currentBuses(new Date()); render(); });
+  window.setInterval(() => { if (!document.hidden && !$("goChooser").open) render(); }, 15000);
+  render();
 })();
