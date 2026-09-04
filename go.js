@@ -4,6 +4,7 @@
   const trip = { from: "place:home", to: "place:downtown", preference: "soonest", selected: null, role: "to", preview: null, map: null, markers: [], opener: null };
   const mapPoints = new Map();
   let nearbyCenter = null;
+  let stepsOpen = false;
   const locations = () => [...state.locations, ...mapPoints.values()];
   let busSnapshot = state.buses, busReceivedAt = Date.now();
   function currentBuses(now) {
@@ -32,6 +33,8 @@
   }
   const evidence = (option) => option.data === "live-bus" ? "Live bus arrival" : option.data === "live" ? "Live trolley position" : "Rough estimate";
   function render() {
+    const focusedRide = document.activeElement?.dataset.ride;
+    const focusedSteps = document.activeElement?.id === "goStepsToggle";
     $("goFrom").textContent = name(trip.from); $("goTo").textContent = name(trip.to);
     document.querySelectorAll("[data-go-place]").forEach((button) => button.setAttribute("aria-pressed", String(trip.to === `place:${button.dataset.goPlace}`)));
     document.querySelectorAll("[data-go-preference]").forEach((button) => button.setAttribute("aria-pressed", String(trip.preference === button.dataset.goPreference)));
@@ -49,9 +52,14 @@
       const facts = el("div", "go-ticket-facts");
       [["Estimated arrival", tight ? "Uncertain" : `~${time(plus(now, ride.arrivalMinutes))}`], ["Walking", `${ride.walkToStop + ride.walkFromStop} min`], ["Fare", ride.cost ? `$${ride.cost.toFixed(2)}` : "Free"]].forEach(([label, value]) => { const fact = el("div"); fact.append(el("span", "", label), el("strong", "", value)); facts.append(fact); });
       ticket.append(facts);
+      ticket.append(el("p", "go-boarding", `Board at ${ride.boarding}`));
+      const details = el("details", "go-trip-details"); details.open = stepsOpen;
+      const summary = el("summary", "", "Steps & boarding details"); summary.id = "goStepsToggle";
+      details.append(summary);
+      details.addEventListener("toggle", () => { if (details.isConnected) stepsOpen = details.open; });
       const steps = el("ol", "go-steps");
       [[ride.leaveIn, `Walk ${ride.walkToStop} min to your stop`, ride.boarding], [ride.wait, `Board ${ride.label}`, `${ride.ride} min ride · ${ride.buffer} min boarding cushion`], [ride.wait + ride.ride, `Get off at ${ride.alighting}`, `Walk ${ride.walkFromStop} min to ${name(trip.to)}`]].forEach(([minutes, title, detail]) => { const row = el("li"), copy = el("div"); copy.append(el("strong", "", title), el("small", "", detail)); row.append(el("time", "", tight ? "—" : `${rough ? "~" : ""}${time(plus(now, minutes))}`), copy); steps.append(row); });
-      ticket.append(steps, el("p", `go-estimate-note${tight ? " go-tight" : ""}`, tight ? "The predicted arrival leaves too little time to walk and board comfortably. Check another option before leaving." : rough ? "Rough timing: no live arrival for this stop. A 15-minute waiting assumption is used; check again before leaving." : `${evidence(ride)}. ${ride.data === "live" ? "Travel time is estimated from the trolley's position." : "Arrival reported for your boarding stop."} Traffic can change these times.`));
+      details.append(steps); ticket.append(details, el("p", `go-estimate-note${tight ? " go-tight" : ""}`, tight ? "Too little time to walk and board comfortably. Try another ride." : rough ? "No live arrival here. Assumes a 15-min wait; check before leaving." : `${evidence(ride)}. Traffic can change these estimates.`));
       target.append(ticket);
       plan.options.forEach((option) => {
         const button = el("button", "go-option"); button.type = "button";
@@ -60,7 +68,7 @@
         const copy = el("span", "go-option-copy"); copy.append(el("strong", "", option.label), el("small", "", `${option.cost ? `$${option.cost.toFixed(2)}` : "Free"} · ${option.walkToStop + option.walkFromStop} min walk · ${evidence(option)}`));
         button.append(el("span", `go-service ${option.id}`, serviceToken(option.id)), copy, el("span", "go-option-time", option.wait < option.walkToStop + option.buffer ? "Too tight" : `~${time(plus(now, option.arrivalMinutes))}`));
         button.setAttribute("aria-label", `Select ${option.label}, ${option.wait < option.walkToStop + option.buffer ? "may be too tight to catch" : `estimated arrival ${time(plus(now, option.arrivalMinutes))}`}`);
-        button.append(el("span", "go-option-select", option.id === ride.id ? "Selected" : "Select"));
+        const selectedIndicator = el("span", "go-option-select", option.id === ride.id ? "✓" : ""); selectedIndicator.setAttribute("aria-hidden", "true"); button.append(selectedIndicator);
         button.addEventListener("click", () => { trip.selected = option.id; render(); document.querySelector(`[data-ride="${option.id}"]`)?.focus({ preventScroll: true }); }); $("goOptions").append(button);
       });
       if (plan.options.length === 1) $("goOptions").append(el("p", "go-footnote", "Only one direct service found. Bus stops currently cover Edgewater to Downtown."));
@@ -70,24 +78,31 @@
     const busAge = Math.max(0, Math.floor((now.getTime() - busReceivedAt) / 60000));
     $("goFreshness").textContent = `${trolleyAge == null ? "No live trolley positions" : `Trolley positions ${trolleyAge < 1 ? "updated within a minute" : `${trolleyAge} min old`}`}. ${state.buses.length && busAge < 2 ? `Bus arrivals checked ${busAge < 1 ? "within a minute" : `${busAge} min ago`}` : "Live bus arrivals unavailable"}.`;
     $("goRefresh").disabled = state.refreshing;
+    if (focusedRide) document.querySelector(`[data-ride="${focusedRide}"]`)?.focus({ preventScroll: true });
+    if (focusedSteps) $("goStepsToggle")?.focus({ preventScroll: true });
   }
   function preview(entry, move = true) {
     trip.preview = entry;
     $("goPreviewName").textContent = entry.name;
-    $("goPreviewServices").textContent = entry.services?.length ? entry.services.map(serviceLabel).join(" · ") : entry.detail || "Familiar place";
+    $("goPreviewServices").replaceChildren();
+    if (entry.services?.length) {
+      $("goPreviewServices").append(badges(entry.services), el("span", "go-preview-direction", entry.detail?.split(" · ")[0] || "Transit stop"));
+    } else $("goPreviewServices").textContent = entry.detail || "Familiar place";
     const equal = samePlace(entry.value, trip[trip.role === "to" ? "from" : "to"]);
     $("goConfirm").disabled = equal;
     $("goConfirm").textContent = equal ? "Choose a different place" : `Set ${trip.role === "from" ? "starting point" : "destination"}`;
     document.querySelectorAll(".go-place").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.value === entry.value)));
     trip.markers.forEach(({ marker, entry: item }) => { const selected = item.value === entry.value; marker.setZIndexOffset(selected ? 1000 : 0); marker.getElement()?.classList.toggle("go-selected", selected); });
     trip.pointMarker?.remove();
-    if (entry.id?.startsWith("go-map-") && trip.map) trip.pointMarker = L.circleMarker([entry.lat, entry.lng], { radius: 9, color: "white", weight: 3, fillColor: "#007a72", fillOpacity: 1 }).addTo(trip.map);
+    if (!entry.services?.length && trip.map) trip.pointMarker = L.marker([entry.lat, entry.lng], { interactive: false, zIndexOffset: 2000, icon: L.divIcon({ className: "go-place-pin", html: trip.role === "from" ? "A" : "B", iconSize: [28, 28], iconAnchor: [14, 14] }) }).addTo(trip.map);
     if (move) trip.map?.setView([entry.lat, entry.lng], Math.max(15, trip.map.getZoom()), { animate: false });
   }
   function renderList() {
     const query = $("goSearch").value.trim().toLowerCase();
     let choices = entries().filter((entry) => `${entry.name} ${entry.detail || ""} ${(entry.services || []).map(serviceLabel).join(" ")}`.toLowerCase().includes(query));
     if (nearbyCenter && !query) choices = choices.filter((entry) => entry.services.length).map((entry) => ({ ...entry, distance: TransitEngine.haversineMiles(nearbyCenter, entry) })).filter((entry) => entry.distance <= .5).sort((a, b) => a.distance - b.distance).slice(0, 8);
+    $("goListTitle").textContent = query ? `${choices.length} matching places` : nearbyCenter ? "Nearest to your map point" : "Places & stops";
+    $("goAllStops").hidden = !nearbyCenter && !query;
     $("goPlaceList").replaceChildren();
     choices.forEach((entry) => { const button = el("button", "go-place"); button.type = "button"; button.dataset.value = entry.value; button.setAttribute("aria-pressed", String(trip.preview?.value === entry.value)); const copy = el("span"); copy.append(el("strong", "", entry.name), el("small", "", entry.distance != null ? `${entry.distance.toFixed(2)} mi from map point · ~${Math.max(1, Math.ceil(entry.distance / 3.1 * 60))} min walk*` : entry.detail || "Transit stop")); button.append(copy, badges(entry.services)); button.addEventListener("click", () => preview(entry)); $("goPlaceList").append(button); });
     if (!choices.length) $("goPlaceList").append(el("p", "go-empty", nearbyCenter && !query ? "No stops within half a mile. Move the map toward Biscayne, then try Nearby stops again." : "No matching stops. Try a street number, Downtown, or Bus 3."));
@@ -120,9 +135,9 @@
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(trip.map);
     }
     trip.markers.forEach(({ marker }) => marker.remove());
-    trip.markers = entries().map((entry) => {
+    trip.markers = entries().filter((entry) => entry.services?.length).map((entry) => {
       const tokens = entry.services?.length ? entry.services.map(serviceToken) : ["P"];
-      const marker = L.marker([entry.lat, entry.lng], { title: `${entry.name}: ${entry.services?.map(serviceLabel).join(", ") || entry.detail}`, alt: `Preview ${entry.name}`, icon: L.divIcon({ className: "go-marker", html: `<div class="go-map-pin">${tokens.map((token) => `<b>${token}</b>`).join("")}</div>`, iconSize: [tokens.length * 19 + 12, 30], iconAnchor: [(tokens.length * 19 + 12) / 2, 15] }) }).addTo(trip.map);
+      const marker = L.marker([entry.lat, entry.lng], { title: `${entry.name}: ${entry.services?.map(serviceLabel).join(", ") || entry.detail}`, alt: `Preview ${entry.name}`, icon: L.divIcon({ className: "go-marker", html: `<div class="go-map-pin">${tokens.map((token, index) => `<b class="${entry.services[index]}">${token}</b>`).join("")}</div>`, iconSize: [tokens.length * 19 + 12, 30], iconAnchor: [(tokens.length * 19 + 12) / 2, 15] }) }).addTo(trip.map);
       marker.getElement()?.setAttribute("aria-label", `Preview ${entry.name}, ${entry.services?.map(serviceLabel).join(", ") || entry.detail}`);
       marker.on("click", () => preview(entry, false)); return { marker, entry };
     });
@@ -136,6 +151,7 @@
   $("goSwap").addEventListener("click", () => { [trip.from, trip.to] = [trip.to, trip.from]; trip.selected = null; render(); });
   $("goMapOpen").addEventListener("click", () => openChooser("to", $("goMapOpen")));
   $("goSearch").addEventListener("input", renderList);
+  $("goAllStops").addEventListener("click", () => { nearbyCenter = null; $("goSearch").value = ""; $("goMapHint").textContent = "Move the map under the crosshair, or tap a stop."; renderList(); $("goPlaceList").scrollTop = 0; });
   document.querySelectorAll("[data-go-assign]").forEach((button) => button.addEventListener("click", () => assignRole(button.dataset.goAssign)));
   $("goNearby").addEventListener("click", nearby);
   $("goUsePoint").addEventListener("click", () => {

@@ -29,16 +29,16 @@
       </nav>
 
       <section id="goPanel" class="go-panel" role="tabpanel" aria-labelledby="goTab" hidden>
-        <div class="go-heading"><h2>A little less waiting.</h2><p>Your next trip along Biscayne.</p></div>
+        <div class="go-heading"><h2>Plan your ride</h2><p>Biscayne trolley + Metrobus 3 &amp; 9</p></div>
         <div class="go-endpoints">
-          <button type="button" data-go-role="from"><span class="go-node">A</span><span><small>Leaving from</small><strong id="goFrom">Whole Foods</strong></span><span aria-hidden="true">⌄</span></button>
-          <button type="button" data-go-role="to"><span class="go-node go-node-end">B</span><span><small>Going to</small><strong id="goTo">Downtown</strong></span><span aria-hidden="true">⌄</span></button>
+          <button type="button" data-go-role="from" aria-haspopup="dialog"><span class="go-node">A</span><span><small>From</small><strong id="goFrom">Whole Foods</strong></span></button>
+          <button type="button" data-go-role="to" aria-haspopup="dialog"><span class="go-node go-node-end">B</span><span><small>To</small><strong id="goTo">Downtown</strong></span></button>
           <button type="button" class="go-swap" id="goSwap" aria-label="Reverse this trip">⇅</button>
         </div>
         <div class="go-shortcuts" aria-label="Choose a familiar destination"><button type="button" data-go-place="home">Whole Foods</button><button type="button" data-go-place="downtown">Downtown</button><button type="button" data-go-place="brickell">Brickell</button></div>
         <div class="go-preferences" role="group" aria-label="Choose a ride preference"><button type="button" data-go-preference="soonest" aria-pressed="true">Arrive sooner</button><button type="button" data-go-preference="free" aria-pressed="false">Free ride</button><button type="button" data-go-preference="walk" aria-pressed="false">Less walking</button></div>
         <div id="goJourney" aria-live="polite"></div>
-        <div class="go-options-heading"><h3>Choose your ride</h3><span>Tap to compare</span></div>
+        <div class="go-options-heading"><h3>Compare rides</h3><span>Estimated arrival</span></div>
         <div id="goOptions" class="go-options"></div>
         <button class="go-map-open" id="goMapOpen" type="button"><span aria-hidden="true">⌖</span> Explore stops on the map</button>
         <div class="go-freshness"><p id="goFreshness">Checking live arrivals…</p><button type="button" id="goRefresh">Refresh</button></div>
@@ -47,11 +47,12 @@
 
       <dialog id="goChooser" class="go-chooser" aria-labelledby="goChooserTitle">
         <header><div><h2 id="goChooserTitle">Where are you going?</h2><p>Tap a place, then confirm below.</p></div><button type="button" id="goClose" aria-label="Close place chooser">×</button></header>
-        <div class="go-chooser-roles" role="group" aria-label="Assign selection"><button type="button" data-go-assign="from">From · starting point</button><button type="button" data-go-assign="to">To · destination</button></div>
+        <div class="go-chooser-roles" role="group" aria-label="Assign selection"><button type="button" data-go-assign="from">A · From</button><button type="button" data-go-assign="to">B · To</button></div>
         <label class="go-search"><span class="sr-only">Find a place or stop</span><input type="search" id="goSearch" placeholder="Find a place, street or bus…" autocomplete="off" /></label>
         <div class="go-map-frame"><div id="goMap" aria-label="Map of combined trolley and bus stops"></div><span class="go-crosshair" aria-hidden="true"></span></div>
         <div class="go-map-actions"><button type="button" id="goUsePoint">Use this map point</button><button type="button" id="goNearby">Nearby stops</button></div>
         <p class="go-map-caption" id="goMapHint">Move the map under the crosshair, or tap a stop.</p>
+        <div class="go-list-heading"><strong id="goListTitle">Places &amp; stops</strong><button id="goAllStops" type="button" hidden>Show all</button></div>
         <div id="goPlaceList" class="go-place-list" aria-label="Places and transit stops"></div>
         <footer><div><small id="goPreviewLabel">Preview</small><strong id="goPreviewName">Choose a place</strong><span id="goPreviewServices"></span></div><button type="button" id="goConfirm" disabled>Set destination</button></footer>
       </dialog>
