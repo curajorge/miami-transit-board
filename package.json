@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check app.js && node --check engine.js && node --check server.js && node --check bus-stops.js && node --check trolley-stops.js && node --check tools/extract-bus-stops.mjs",
+    "check": "node --check app.js && node --check go.js && node --check engine.js && node --check server.js && node --check bus-stops.js && node --check trolley-stops.js && node --check tools/extract-bus-stops.mjs",
     "test": "node engine.test.js",
     "verify": "npm run check && npm test"
   },

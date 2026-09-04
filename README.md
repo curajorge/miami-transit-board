@@ -15,6 +15,7 @@ No AI is used for trip recommendations. Every recommendation comes from explicit
 - Direction-aware return trips
 - All 60 Biscayne trolley stops, with a bundled fallback when the public tracker is unavailable
 - A switchable Route Lens prototype with explicit map previews, one-stop controls, familiar-place shortcuts, and searchable stops
+- A third, independent **Go** prototype: a journey ticket, ride preferences, and a map-and-search place chooser with explicit confirmation. Board and Route Lens remain available for comparison.
 - Combined map points when Trolley and Metrobus serve the same physical location
 - Metrobus 3 and 9 stops generated from Miami-Dade GTFS and scoped to the Edgewater–Downtown corridor
 - Map filters organized by Trolley, Bus 3, and Bus 9
@@ -67,6 +68,7 @@ Review the generated diff and run `npm run verify` before committing it.
 | --- | --- |
 | `engine.js` | Deterministic trip comparison and timing rules |
 | `app.js` | Map, public-feed adapters, and interface state |
+| `go.js`, `go.css` | Isolated V3 journey interface and place chooser |
 | `server.js` | Local static server and constrained feed proxies |
 | `bus-stops.js` | Generated full Route 3 and 9 catalog; the app selects the Edgewater–Downtown segment |
 | `trolley-stops.js` | Last-known Biscayne stop catalog used only when the live route feed is unavailable |

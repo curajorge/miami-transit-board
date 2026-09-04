@@ -1,0 +1,107 @@
+.prototype-switch { grid-template-columns: auto 1fr 1fr 1fr; }
+body[data-view="go"] .app-shell > .topbar,
+body[data-view="go"] [data-prototype="board"],
+body[data-view="go"] .app-shell > .map-wrap,
+body[data-view="go"] .app-shell > .status-sheet { display: none; }
+.go-panel { --go-ink: #123b43; --go-teal: #007a72; --go-mist: #e8f4f1; color: var(--go-ink); padding: 22px 18px 18px; background: #f5faf9; }
+.go-panel[hidden] { display: none; }
+.go-panel button, .go-chooser button { font-family: inherit; cursor: pointer; }
+.go-heading h2 { margin: 0; font-size: 28px; line-height: 1.12; letter-spacing: -.055em; font-weight: 850; }
+.go-heading p { margin: 6px 0 20px; color: #53716e; font-size: 13px; }
+.go-endpoints { position: relative; padding: 0 40px 0 0; border: 1px solid #bcd7d1; border-radius: 17px; background: white; }
+.go-endpoints > button:not(.go-swap) { width: 100%; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 11px 14px; border: 0; background: transparent; text-align: left; color: #123b43; }
+.go-endpoints > button:nth-child(2) { border-top: 1px solid #e4eeeb; }
+.go-endpoints > button > span:nth-child(2) { flex: 1; min-width: 0; }
+.go-endpoints small, .go-endpoints strong { display: block; }
+.go-endpoints small { font-size: 11px; color: #58716e; margin-bottom: 2px; }
+.go-endpoints strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 16px; }
+.go-node { flex: 0 0 25px; height: 25px; display: grid; place-items: center; border: 1px solid #237b73; border-radius: 50%; font-size: 11px; font-weight: 800; }
+.go-node-end { color: white; background: #007a72; }
+.go-swap { position: absolute; right: 6px; top: 42px; width: 36px; height: 44px; border: 0; background: #e8f4f1; border-radius: 11px; color: #007a72; font-size: 25px; }
+.go-shortcuts { display: flex; gap: 6px; margin: 10px 0 20px; }
+.go-shortcuts button { flex: 1; min-height: 36px; padding: 6px 4px; font-size: 11px; font-weight: 650; border: 1px solid #d3e5df; border-radius: 20px; background: transparent; color: #285f59; }
+.go-shortcuts button[aria-pressed="true"] { background: #dceee8; border-color: #8cbbb0; }
+.go-preferences { display: flex; gap: 4px; border-bottom: 1px solid #c9ddd6; margin-bottom: 16px; }
+.go-preferences button { flex: 1; padding: 10px 1px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: #617875; font-size: 12px; font-weight: 700; }
+.go-preferences button[aria-pressed="true"] { color: #00736b; border-bottom-color: #007a72; }
+.go-ticket { border-radius: 18px; overflow: hidden; background: white; border: 1px solid #bdd8cf; }
+.go-ticket-head { padding: 17px 18px 14px; color: white; background: #075e59; }
+.go-ticket-head > p { margin: 0 0 7px; font-size: 12px; color: #c0e9dc; }
+.go-ticket-head h3 { margin: 0; font-size: 29px; letter-spacing: -.04em; line-height: 1.1; }
+.go-ticket-head .go-ticket-service { margin: 9px 0 0; font-size: 14px; color: white; }
+.go-ticket-facts { display: flex; justify-content: space-between; gap: 10px; padding: 13px 18px; border-bottom: 1px dashed #bdd8cf; }
+.go-ticket-facts span { display: block; font-size: 10px; color: #607872; }
+.go-ticket-facts strong { display: block; margin-top: 4px; font-size: 16px; font-variant-numeric: tabular-nums; }
+.go-steps { list-style: none; padding: 16px 18px; margin: 0; }
+.go-steps li { position: relative; display: grid; grid-template-columns: 48px 1fr; gap: 20px; padding: 0 0 16px; }
+.go-steps li:last-child { padding-bottom: 0; }
+.go-steps li::before { content: ""; position: absolute; top: 5px; left: 54px; width: 7px; height: 7px; border: 2px solid #007a72; border-radius: 50%; background: white; z-index: 1; }
+.go-steps li:not(:last-child)::after { content: ""; position: absolute; top: 12px; bottom: -5px; left: 58px; width: 2px; background: #c4dfd5; }
+.go-steps time { padding-top: 2px; font-size: 11px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.go-steps strong { display: block; font-size: 13px; line-height: 1.35; }
+.go-steps small { display: block; color: #607872; font-size: 11px; margin-top: 3px; line-height: 1.4; }
+.go-estimate-note { margin: 0; padding: 11px 18px; background: #edf5f1; color: #43655c; font-size: 11px; line-height: 1.5; }
+.go-estimate-note.go-tight { background: #fff0d6; color: #784b03; }
+.go-options-heading { display: flex; justify-content: space-between; align-items: baseline; margin: 22px 0 8px; gap: 10px; }
+.go-options-heading h3 { margin: 0; font-size: 14px; }
+.go-options-heading > span { font-size: 10px; color: #607872; }
+.go-option { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; background: white; color: #123b43; border: 1px solid #d8e6e0; border-radius: 11px; padding: 12px; margin: 0 0 7px; }
+.go-service { min-width: 31px; height: 31px; display: inline-grid; place-items: center; border-radius: 8px; background: #e1f1e7; color: #19603b; font-size: 12px; font-weight: 850; }
+.go-service.bus-3 { background: #e1edfb; color: #235d9e; }
+.go-service.bus-9 { background: #f2e7f8; color: #774995; }
+.go-option-copy { flex: 1; min-width: 0; }
+.go-option strong, .go-option small { display: block; }
+.go-option strong { font-size: 13px; }
+.go-option small { margin-top: 4px; font-size: 10px; color: #61766e; }
+.go-option-time { font-size: 15px; font-weight: 800; white-space: nowrap; }
+.go-map-open { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 46px; margin-top: 14px; background: transparent; color: #00736b; border: 1px solid #a3c5b9; border-radius: 10px; font-weight: 750; font-size: 12px; }
+.go-map-open span { font-size: 23px; }
+.go-freshness { display: flex; align-items: center; gap: 10px; margin: 17px 0 8px; }
+.go-freshness p { flex: 1; color: #54746a; font-size: 10px; line-height: 1.45; margin: 0; }
+.go-freshness button { background: transparent; border: 0; color: #00736b; min-height: 38px; font-size: 11px; text-decoration: underline; }
+.go-footnote { font-size: 10px; line-height: 1.5; color: #71867d; margin: 0; }
+.go-empty { margin: 0; padding: 20px; background: #e8f4f1; border-radius: 12px; font-size: 14px; line-height: 1.6; }
+.go-chooser { width: min(100%, 480px); max-width: 100%; height: min(90dvh, 820px); max-height: 90dvh; padding: 0; border: 0; border-radius: 22px 22px 0 0; margin: auto auto 0; background: #f8fcfa; color: #123b43; box-shadow: 0 -20px 80px #123b4333; overflow: hidden; }
+.go-chooser[open] { display: flex; flex-direction: column; }
+.go-chooser::backdrop { background: #123b4377; }
+.go-chooser header { display: flex; align-items: center; gap: 10px; padding: 19px 18px 10px; }
+.go-chooser header > div { flex: 1; }
+.go-chooser h2 { font-size: 21px; letter-spacing: -.04em; margin: 0; }
+.go-chooser header p { margin: 4px 0 0; font-size: 11px; color: #637f73; }
+.go-chooser header button { background: #e7f1eb; border: 0; border-radius: 50%; width: 38px; height: 38px; font-size: 25px; color: #315e51; }
+.go-search { padding: 0 18px 10px; }
+.go-search input { width: 100%; min-height: 43px; font: inherit; font-size: 14px; border: 1px solid #bfd5ca; border-radius: 10px; padding: 10px 12px; background: white; color: #123b43; }
+#goMap { height: 210px; min-height: 140px; flex: 0 1 210px; background: #dbeae3; }
+.go-map-caption { margin: 0; padding: 6px 18px; background: #e9f3ed; color: #4d6f62; font-size: 10px; }
+.go-place-list { flex: 1; min-height: 70px; overflow-y: auto; overscroll-behavior: contain; padding: 4px 10px; }
+.go-place { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 8px; min-height: 55px; text-align: left; border: 0; border-bottom: 1px solid #e3ede7; background: transparent; color: #123b43; border-radius: 6px; }
+.go-place[aria-pressed="true"] { background: #dcefe4; }
+.go-place > span:first-child { min-width: 0; flex: 1; }
+.go-place strong, .go-place small { display: block; }
+.go-place strong { font-size: 13px; }
+.go-place small { font-size: 10px; color: #60796b; margin-top: 3px; }
+.go-badges { display: flex; gap: 3px; }
+.go-badges .go-service { min-width: 23px; height: 25px; font-size: 10px; border-radius: 5px; }
+.go-chooser footer { flex: 0 0 auto; padding: 12px 18px max(14px, env(safe-area-inset-bottom)); border-top: 1px solid #b9d5c6; background: white; }
+.go-chooser footer small, .go-chooser footer strong, .go-chooser footer span { display: block; }
+.go-chooser footer small { color: #688275; font-size: 10px; }
+.go-chooser footer strong { margin-top: 2px; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.go-chooser footer span { color: #607b6c; font-size: 10px; margin-top: 3px; }
+.go-chooser footer button { width: 100%; min-height: 45px; border: 0; border-radius: 10px; background: #007a72; color: white; font-weight: 750; font-size: 13px; margin-top: 10px; }
+.go-chooser footer button:disabled { background: #b8cbc1; color: #436153; cursor: default; }
+.go-map-pin { display: flex; gap: 2px; width: max-content; padding: 4px; border-radius: 9px; border: 2px solid white; background: #edf8f1; box-shadow: 0 2px 5px #123b4330; }
+.go-map-pin b { min-width: 17px; font: 800 10px/18px sans-serif; text-align: center; color: #075e59; }
+.go-selected .go-map-pin { border-color: white; background: #007a72; box-shadow: 0 0 0 4px #007a723d; }
+.go-selected .go-map-pin b { color: white; }
+@media (max-width: 350px) { .go-panel { padding: 19px 13px 16px; } .go-heading h2 { font-size: 25px; } .go-ticket-head h3 { font-size: 26px; } .go-ticket-facts { padding: 12px 14px; } .go-ticket-facts strong { font-size: 14px; } .go-chooser header { padding-top: 14px; } #goMap { flex-basis: 170px; } }
+/* Leave room for search results and confirmation when the keyboard is open. */
+@media (max-height: 600px) {
+  .go-chooser { height: 100dvh; max-height: 100dvh; }
+  .go-chooser header { padding-top: 10px; }
+  #goMap { min-height: 80px; flex-basis: 100px; }
+  .go-chooser footer { padding-top: 8px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+}
+@media (max-height: 450px) {
+  #goMap, .go-map-caption { display: none; }
+  .go-chooser header p { display: none; }
+}

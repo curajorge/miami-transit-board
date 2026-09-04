@@ -339,8 +339,10 @@ function setTimelineRole(role) {
 }
 
 function setView(view) {
-  state.view = view === "timeline" ? "timeline" : "board";
+  state.view = ["timeline", "go"].includes(view) ? view : "board";
   document.body.dataset.view = state.view;
+  document.querySelector("#goPanel").hidden = state.view !== "go";
+  if (state.view === "go") window.TransitGo?.enter();
   localStorage.setItem("transit.view", state.view);
   document.querySelectorAll("[data-view-tab]").forEach((button) => {
     const active = button.dataset.viewTab === state.view;
@@ -554,6 +556,7 @@ async function refreshVehicles() {
     state.refreshing = false;
     ui.refresh.disabled = false;
     ui.loading.hidden = true;
+    window.dispatchEvent(new Event("transit-data"));
   }
 }
 
@@ -604,6 +607,14 @@ document.querySelectorAll("[data-lens-place]").forEach((button) => button.addEve
   if (location) selectTimelineLocation(location.id);
 }));
 document.querySelectorAll("[data-view-tab]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.viewTab)));
+document.querySelector(".prototype-switch").addEventListener("keydown", (event) => {
+  const tabs = [...document.querySelectorAll("[data-view-tab]")];
+  const index = tabs.indexOf(document.activeElement);
+  if (index < 0 || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  event.preventDefault();
+  const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+  setView(tabs[next].dataset.viewTab); tabs[next].focus();
+});
 ui.timelinePrev.addEventListener("click", () => stepTimeline(-1));
 ui.timelineNext.addEventListener("click", () => stepTimeline(1));
 function filterTimelineStops(query) {
@@ -640,5 +651,5 @@ state.from = validSaved(savedFrom) ? savedFrom : state.from;
 state.to = validSaved(savedTo) ? savedTo : state.to;
 refreshEndpointCards();
 updatePickHint();
-setView(localStorage.getItem("transit.view") === "timeline" ? "timeline" : "board");
+setView(localStorage.getItem("transit.view"));
 start();
