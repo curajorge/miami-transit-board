@@ -100,6 +100,8 @@
     if (trip.preview) preview(trip.preview, false);
   }
   function nearby() {
+    // Freeze any keyboard/inertial pan before reading the point under the crosshair.
+    trip.map.stop();
     const center = trip.map.getCenter();
     nearbyCenter = { lat: center.lat, lng: center.lng };
     $("goSearch").value = "";
@@ -113,7 +115,7 @@
     $("goMapHint").textContent = "Move the map under the crosshair, or tap a stop.";
     $("goSearch").value = ""; $("goChooser").showModal();
     if (!trip.map) {
-      trip.map = L.map("goMap", { zoomControl: false }).setView([25.79, -80.19], 14);
+      trip.map = L.map("goMap", { zoomControl: false, zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false }).setView([25.79, -80.19], 14);
       L.control.zoom({ position: "bottomright" }).addTo(trip.map);
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(trip.map);
     }
