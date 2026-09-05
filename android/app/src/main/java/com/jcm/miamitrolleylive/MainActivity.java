@@ -5,6 +5,10 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Build;
+import android.graphics.Color;
+import android.view.WindowInsets;
+import android.widget.FrameLayout;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -34,7 +38,22 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         webView = new WebView(this);
-        setContentView(webView);
+        FrameLayout container = new FrameLayout(this);
+        container.setBackgroundColor(Color.rgb(16, 42, 67));
+        container.addView(webView, new FrameLayout.LayoutParams(-1, -1));
+        setContentView(container);
+        // Android 15 enforces edge-to-edge. Keep the entire WebView, including
+        // dialogs, inside system bars/cutouts rather than guessing CSS heights.
+        if (Build.VERSION.SDK_INT >= 30) {
+            getWindow().setDecorFitsSystemWindows(false);
+            container.setOnApplyWindowInsetsListener((view, insets) -> {
+                android.graphics.Insets safe = insets.getInsets(
+                    WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout() | WindowInsets.Type.ime());
+                view.setPadding(safe.left, safe.top, safe.right, safe.bottom);
+                return WindowInsets.CONSUMED;
+            });
+            container.requestApplyInsets();
+        }
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -82,7 +101,7 @@ public class MainActivity extends Activity {
 
     private WebResourceResponse assetResponse(String path) {
         String name = path.equals("/") ? "index.html" : path.substring(1);
-        if (!name.matches("(index\\.html|styles\\.css|engine\\.js|app\\.js|go\\.js|go\\.css|bus-stops\\.js|trolley-stops\\.js|vendor/leaflet\\.css|vendor/leaflet\\.js|assets/brand/miami-transit-logo-v1\\.png)")) return error("Not found");
+        if (!name.matches("(index\\.html|styles\\.css|engine\\.js|app\\.js|go\\.js|go\\.css|bus-stops\\.js|trolley-stops\\.js|vendor/leaflet\\.css|vendor/leaflet\\.js|assets/brand/miami-transit-after-hours\\.png)")) return error("Not found");
         String mime = name.endsWith(".png") ? "image/png" : name.endsWith(".html") ? "text/html" : name.endsWith(".css") ? "text/css" : "text/javascript";
         try { return new WebResourceResponse(mime, "UTF-8", getAssets().open("web/" + name)); }
         catch (Exception ignored) { return error("Missing app asset"); }

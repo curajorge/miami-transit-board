@@ -126,6 +126,44 @@
 .go-chooser footer .go-badges { display: flex; }
 .go-chooser footer .go-badges .go-service { display: inline-grid; color: white; }
 .go-preview-direction { line-height: 1.3; }
+.go-panel { padding-top: calc(22px + env(safe-area-inset-top)); padding-bottom: calc(18px + env(safe-area-inset-bottom)); }
+.go-panel { position: relative; }
+.go-heading { padding-right: 38px; }
+.go-heading h1 { font-size: clamp(22px, 6vw, 28px); }
+.go-settings-open { position: absolute; right: 12px; top: calc(22px + env(safe-area-inset-top)); width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; color: inherit; font-size: 25px; }
+.go-settings { width: min( calc(100% - 32px), 400px); padding: 20px; border: 1px solid #bcd7d1; border-radius: 18px; background: #f5faf9; color: #123b43; }
+.go-settings::backdrop { background: #091b2c99; }
+.go-settings header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.go-settings h2 { margin: 0; font-size: 22px; }
+.go-settings header button { min-width: 44px; min-height: 44px; border: 0; border-radius: 50%; background: transparent; color: inherit; font-size: 26px; cursor: pointer; }
+.go-settings p { font-size: 13px; line-height: 1.6; margin-bottom: 0; }
+.go-theme { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 15px; }
+.go-theme select { font: inherit; min-height: 44px; border: 1px solid #bcd7d1; border-radius: 8px; padding: 6px 10px; color: inherit; background: transparent; }
+.go-live-status { flex-shrink: 0; margin: 0; padding: 8px 18px; font-size: 11px; line-height: 1.4; }
+.go-live-vehicle { display: grid; place-items: center; background: #ffd45a; color: #102a43; border: 3px solid #102a43; border-radius: 50%; box-shadow: 0 0 0 2px white; font: 900 15px sans-serif; }
+/* Night palette follows the After Hours mark; service colors retain their meaning. */
+:root[data-theme="dark"] { color-scheme: dark; color: #edf6fc; background: #091b2c; }
+[data-theme="dark"] .app-shell, [data-theme="dark"] .go-panel, [data-theme="dark"] .go-chooser { --go-ink: #edf6fc; color: #edf6fc; background: #102a43; }
+[data-theme="dark"] :is(.go-endpoints > button:not(.go-swap), .go-ticket, .go-option, .go-search input, .go-chooser footer, .go-chooser-roles button, .go-map-actions button) { background: #193a53; color: #edf6fc; border-color: #426176; }
+[data-theme="dark"] :is(.go-heading p, .go-endpoints small, .go-ticket-facts span, .go-steps small, .go-options-heading > span, .go-option small, .go-freshness p, .go-footnote, .go-chooser header p, .go-place small, .go-chooser footer small, .go-chooser footer span) { color: #b1c6d5; }
+[data-theme="dark"] :is(.go-shortcuts button, .go-preferences button, .go-map-open, .go-freshness button, .go-option-select, .go-trip-details summary, .go-list-heading button) { color: #6ce0d5; }
+[data-theme="dark"] :is(.go-shortcuts button, .go-preferences, .go-ticket-facts, .go-list-heading, .go-place, .go-theme select, .go-map-open) { border-color: #426176; }
+[data-theme="dark"] :is(.go-place, .go-chooser header button) { color: #edf6fc; }
+[data-theme="dark"] :is(.go-shortcuts button[aria-pressed="true"], .go-option[aria-pressed="true"], .go-place[aria-pressed="true"], .go-empty, .go-chooser header button) { background: #204b60; }
+[data-theme="dark"] .go-option[aria-pressed="true"] { border-color: #6ce0d5; box-shadow: inset 3px 0 #6ce0d5; }
+[data-theme="dark"] .go-preferences button[aria-pressed="true"] { color: #6ce0d5; border-bottom-color: #6ce0d5; }
+[data-theme="dark"] .go-ticket-head { background: #174d59; }
+[data-theme="dark"] :is(.go-estimate-note, .go-map-caption) { background: #153448; color: #b1c6d5; }
+[data-theme="dark"] .go-estimate-note.go-tight { background: #473a1f; color: #ffe099; }
+[data-theme="dark"] .go-swap { border-color: #102a43; }
+[data-theme="dark"] :is(.go-chooser-roles button[aria-pressed="true"], .go-chooser footer button:not(:disabled)) { background: #007a72; color: white; }
+[data-theme="dark"] .go-chooser footer button:disabled { background: #354e60; color: #b1c6d5; }
+[data-theme="dark"] .go-search input::placeholder { color: #b1c6d5; }
+[data-theme="dark"] :is(button, select, input, summary):focus-visible { outline: 3px solid #ffd45a; outline-offset: 2px; }
+[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.8) saturate(.65); }
+[data-theme="dark"] :is(.leaflet-popup-content-wrapper, .leaflet-popup-tip, .leaflet-bar a, .leaflet-control-attribution) { background: #193a53; color: #edf6fc; }
+[data-theme="dark"] .leaflet-control-attribution a { color: #6ce0d5; }
+[data-theme="dark"] .go-settings { color: #edf6fc; background: #102a43; border-color: #426176; }
 @media (max-width: 350px) { .go-panel { padding: 19px 13px 16px; } .go-heading h1 { font-size: 25px; } .go-ticket-head h2 { font-size: 26px; } .go-ticket-facts { padding: 12px 14px; } .go-ticket-facts strong { font-size: 14px; } .go-chooser header { padding-top: 14px; } #goMap { flex-basis: 170px; } }
 /* Leave room for search results and confirmation when the keyboard is open. */
 @media (max-height: 600px) {

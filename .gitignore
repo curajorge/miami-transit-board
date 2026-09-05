@@ -6,3 +6,16 @@ android/local.properties
 *.aab
 .DS_Store
 node_modules/
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.key
+*.pem
+key.properties
+keystore.properties
+service-account*.json
+play-credentials*.json

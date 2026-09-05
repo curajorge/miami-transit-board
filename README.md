@@ -1,4 +1,7 @@
-# Miami Transit Board
+<p align="center"><img src="assets/brand/miami-transit-after-hours.png" width="112" alt="Miami Transit — pink and turquoise routes forming an M" /></p>
+
+<h1 align="center">Miami Transit Board</h1>
+<p align="center"><strong>Less guessing. More Miami.</strong><br />Know when to leave, where to board, and how to get back.</p>
 
 [![CI](https://github.com/curajorge/miami-transit-board/actions/workflows/ci.yml/badge.svg)](https://github.com/curajorge/miami-transit-board/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -6,6 +9,23 @@
 A deterministic, mobile-first decision board for trips from Edgewater toward Downtown Miami and Brickell. It combines the Biscayne trolley with nearby Metrobus 3 and 9 arrivals and answers a practical question: **when should I leave, where should I board, and when should I expect to arrive?**
 
 No AI is used for trip recommendations. Every recommendation comes from explicit timing, walking, direction, and reliability rules in [`engine.js`](engine.js).
+
+**Android preview · Open source · Google Play planned, not yet published**
+
+## A little Miami, day or night
+
+<table>
+  <tr><th>Plan your ride</th><th>After hours</th><th>Make it yours</th></tr>
+  <tr>
+    <td><img src="docs/screenshots/ride-light.png" width="250" alt="Light-mode ride planner comparing the Biscayne trolley and Metrobus" /></td>
+    <td><img src="docs/screenshots/ride-dark.png" width="250" alt="The same journey board in navy dark mode" /></td>
+    <td><img src="docs/screenshots/settings.png" width="250" alt="Settings with System, Light, and Dark appearance choices" /></td>
+  </tr>
+</table>
+
+Actual mobile-web captures, not mockups. Arrival times are a snapshot, not a promise; rough estimates are labeled in the app. [Screenshot notes](docs/screenshots/README.md).
+
+Choose **From** and **To**, compare rides, then expand the boarding steps. Open **Live trolley & stops map** to see fresh yellow trolley markers or choose a map point. Use **⚙ Settings** for appearance; the choice stays on your device.
 
 ## What works
 
@@ -21,6 +41,8 @@ No AI is used for trip recommendations. Every recommendation comes from explicit
 - Map-based From/To selection with direction-aware boarding
 - Clear live-data age, rough-estimate labels, and tight-connection warnings
 - An Android WebView wrapper with only the Internet permission
+- Light, dark, and system appearance, with Android status-bar/cutout spacing
+- Live trolley map markers with stale-position filtering
 
 See [Transit data sources](DATA_SOURCES.md) for the provenance and limitations of each feed.
 
@@ -85,6 +107,10 @@ Times remain estimates: walking uses straight-line distance, ride durations use 
 ## Contributing and security
 
 Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Please report security issues privately as described in [SECURITY.md](SECURITY.md).
+
+## The road to Google Play
+
+The goal is a small, trustworthy Miami transit companion—not a claim that this prototype is store-ready. See the [release checklist](docs/GOOGLE_PLAY.md) for signing, privacy, testing, accessibility, and transit-reliability work still required. No release keys or store credentials belong in this repository.
 
 ## Disclaimer
 
