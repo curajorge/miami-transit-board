@@ -25,7 +25,9 @@ No AI is used for trip recommendations. Every recommendation comes from explicit
 
 Actual mobile-web captures, not mockups. Arrival times are a snapshot, not a promise; rough estimates are labeled in the app. [Screenshot notes](docs/screenshots/README.md).
 
-Choose **From** and **To**, compare rides, then expand the boarding steps. Open **Live trolley & stops map** to see fresh yellow trolley markers or choose a map point. Use **⚙ Settings** for appearance; the choice stays on your device.
+Choose **From** and **To**, compare rides, then expand the boarding steps. Open **Live trolleys** for a dedicated vehicle map, update ages, and **Show all trolleys**. Use **Choose stops on the map** to select a trip endpoint. Use **⚙ Settings** for appearance; the choice stays on your device.
+
+Metrobus integration supplies arrival estimates only, not moving bus locations. A failed trolley refresh is labeled explicitly; recent last-known positions retain their original timestamps, and positions older than four minutes are hidden. Both web and Android tracker requests make at most one retry. Provider availability is not guaranteed.
 
 ## What works
 
