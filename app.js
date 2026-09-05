@@ -2,6 +2,7 @@
 const ROUTE_ID = "71276";
 const BUS_STOPS = TransitEngine.busStopsForCorridor(window.MiamiBusStops?.routes);
 const state = { refreshing: false, vehicles: [], buses: [], stops: window.MiamiTrolleyStops?.stops || [], locations: [], lastError: "", trolleyStatus: "loading", trolleyCheckedAt: null };
+Object.assign(state, { busVehicles: [], busPositionStatus: "loading", busPositionsRefreshing: false });
 const serviceName = service => service === "trolley" ? "Trolley" : service === "bus-3" ? "Bus 3" : "Bus 9";
 const locationServices = location => location.services.map(serviceName).join(" · ");
 function friendlyStopName(value) {
@@ -60,6 +61,7 @@ async function loadStops() {
   window.dispatchEvent(new Event("transit-data"));
 }
 async function refreshVehicles() {
+  refreshBusPositions();
   if (state.refreshing) return;
   state.refreshing = true;
   window.dispatchEvent(new Event("transit-data"));
@@ -78,6 +80,19 @@ async function refreshVehicles() {
     state.lastError = results.some(result => result.status === "rejected") ? "Some live feeds are unavailable. Estimates and saved stops remain available." : "";
   } finally {
     state.refreshing = false;
+    window.dispatchEvent(new Event("transit-data"));
+  }
+}
+async function refreshBusPositions() {
+  if (state.busPositionsRefreshing) return;
+  state.busPositionsRefreshing = true;
+  window.dispatchEvent(new Event("transit-data"));
+  try {
+    state.busVehicles = TransitEngine.normalizeBusPositions(await requestData("/api/bus-positions"));
+    state.busPositionStatus = "ready";
+  } catch { state.busPositionStatus = "unavailable"; }
+  finally {
+    state.busPositionsRefreshing = false;
     window.dispatchEvent(new Event("transit-data"));
   }
 }

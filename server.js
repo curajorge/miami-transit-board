@@ -81,6 +81,18 @@ async function proxyBus(reqUrl, res) {
   }
 }
 
+async function proxyBusPositions(res) {
+  // Fixed public County query: no user-supplied URL, SQL, or fields.
+  const query = new URLSearchParams({ f: "json", where: "RouteID IN (3,9)", outFields: "BusID,BusName,RouteID,Latitude,Longitude,BusTimeStampUTC,DirectionName,TripHeadsign", returnGeometry: "false" });
+  try {
+    const url = "https://gis.miamidade.gov/arcgis/rest/services/BusMetro_RealTime/BusRealTime/MapServer/0/query?" + query;
+    const raw = await cachedCurl("bus-positions", ["--proto", "=https", "--proto-redir", "=https", "-L", "--fail", "--silent", "--show-error", "--max-time", "10", "--max-filesize", "1048576", url], 20_000);
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data.features) || data.error || data.exceededTransferLimit) throw new Error("Invalid bus positions");
+    send(res, 200, JSON.stringify(data));
+  } catch { send(res, 502, JSON.stringify({ error: "County bus positions unavailable" })); }
+}
+
 function serveFile(reqUrl, res) {
   const requested = reqUrl.pathname === "/" ? "index.html" : reqUrl.pathname.replace(/^\/+/, "");
   if (!PUBLIC_FILES.has(requested)) return send(res, 404, "Not found", "text/plain");
@@ -97,6 +109,7 @@ http.createServer((req, res) => {
   catch { return send(res, 400, "Bad request", "text/plain"); }
   if (reqUrl.pathname === "/api/tracker") return void proxyTracker(reqUrl, res);
   if (reqUrl.pathname === "/api/bus") return void proxyBus(reqUrl, res);
+  if (reqUrl.pathname === "/api/bus-positions") return void proxyBusPositions(res);
   serveFile(reqUrl, res);
 }).listen(PORT, "127.0.0.1", () => {
   console.log(`Miami Transit Board: http://localhost:${PORT}`);

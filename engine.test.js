@@ -4,6 +4,28 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const { normalizeStops, busStopsForCorridor, mergeTransitLocations, planTrip } = require("./engine");
 const NOW = new Date("2026-08-31T18:00:00-04:00");
+test("County bus positions retain UTC ages, directions and only Routes 3/9", () => {
+  const { normalizeBusPositions } = require("./engine");
+  const base = { BusID: 123, BusName: "Bus123", RouteID: 3, Latitude: 25.79, Longitude: -80.19, BusTimeStampUTC: NOW.getTime(), DirectionName: "Southbound", TripHeadsign: "Downtown" };
+  const result = normalizeBusPositions({ features: [base, base, {...base, RouteID: 9, BusID: 124}, {...base, RouteID: 100}, {...base, Latitude: null}, {...base, BusTimeStampUTC: 100}, {...base, Longitude: 0}].map(attributes => ({ attributes })) });
+  assert.equal(result.length, 2);
+  assert.equal(result[0].Tim, NOW.getTime()/1000);
+  assert.equal(result[0].direction, "Southbound");
+  assert.equal(result[1].service, "bus-9");
+  assert.throws(() => normalizeBusPositions({error: {message: "offline"}}));
+  assert.throws(() => normalizeBusPositions({features: [], exceededTransferLimit: true}));
+});
+test("saved trips validate storage, preserve map points and discard unsafe values", () => {
+  const { normalizeSavedTrips } = require("./engine");
+  const trip = {name:"My commute",from:{value:"location:go-map-25.800000--80.190000",lat:25.8,lng:-80.19,name:"Home"},to:{value:"place:downtown"},selected:"bus-3",preference:"walk"};
+  const clean = normalizeSavedTrips(JSON.parse(JSON.stringify({version:1,items:[trip]})));
+  assert.deepEqual(clean[0], trip);
+  assert.deepEqual(normalizeSavedTrips(null), []);
+  assert.deepEqual(normalizeSavedTrips({version:2,items:[trip]}), []);
+  assert.deepEqual(normalizeSavedTrips({version:1,items:[{...trip,from:{value:"location:invalid",lat:0,lng:0}}]}), []);
+  assert.equal(normalizeSavedTrips({version:1,items:Array(20).fill(trip)}).length, 8);
+  assert.equal(normalizeSavedTrips({version:1,items:[{...trip,selected:"<script>",preference:"bad"} ]})[0].selected, null);
+});
 const stops = [
   { ID:"920851", Name:"NE 29 St (SB)", StopNumber:"6 - NE 29 St (SB)", Latitude:"25.804565", Longitude:"-80.193634" },
   { ID:"920869", Name:"Bayfront Metromover (SB)", StopNumber:"24 - Bayfront Metromover (SB)", Latitude:"25.773203", Longitude:"-80.187495" },

@@ -21,25 +21,24 @@
   $("goSettingsOpen").addEventListener("click", () => $("goSettings").showModal());
   $("goSettingsClose").addEventListener("click", () => $("goSettings").close());
   $("goSettings").addEventListener("close", () => $("goSettingsOpen").focus({ preventScroll: true }));
-  let liveMap = null, liveLayer = null, fitOnArrival = false;
-  const freshVehicles = () => state.vehicles.filter(v => {
+  let liveMap = null, liveLayer = null, fitOnArrival = false, liveFilter = "all";
+  const allVehicles = () => [...state.vehicles.map(v => ({ ...v, service: "trolley" })), ...state.busVehicles.filter(v => Number(v.Lat) >= 25.765 && Number(v.Lat) <= 25.825 && Number(v.Lng) >= -80.205 && Number(v.Lng) <= -80.17)];
+  const freshVehicles = () => allVehicles().filter(v => {
     const age = Date.now() / 1000 - Number(v.Tim);
-    return age >= 0 && age < 240;
+    return age >= 0 && age < 240 && (liveFilter === "all" || v.service === liveFilter);
   });
-  const vehicleName = v => `Trolley ${String(v.ShortName || v.ID || "").trim()}`;
+  const vehicleName = v => v.service === "trolley" ? `Trolley ${String(v.ShortName || v.ID || "").trim()}` : `Bus ${v.service.slice(4)} · ${v.direction}`;
   const vehicleAge = v => {
     const seconds = Math.max(0, Math.floor(Date.now() / 1000 - Number(v.Tim)));
     return seconds < 60 ? `${seconds} sec ago` : `${Math.floor(seconds / 60)} min ago`;
   };
   function liveStatusText(fresh) {
-    if (state.trolleyStatus === "loading") return "Connecting to the City tracker…";
-    if (state.trolleyStatus === "unavailable") return fresh.length
-      ? "Refresh failed. Showing recent last-known positions with their actual ages."
-      : "City tracker unavailable after retry. Try Refresh positions.";
-    if (!fresh.length) return state.vehicles.length
-      ? "Only stale or invalid-time positions received. No current vehicles to show."
-      : "The tracker returned no vehicle positions. This does not confirm service has stopped.";
-    return `${fresh.length} ${fresh.length === 1 ? "trolley" : "trolleys"} reporting · latest update ${vehicleAge(fresh.slice().sort((a, b) => Number(b.Tim) - Number(a.Tim))[0])}${state.refreshing ? " · refreshing…" : ""}`;
+    return ["trolley", "bus-3", "bus-9"].filter(s => liveFilter === "all" || liveFilter === s).map(service => {
+      const label = service === "trolley" ? "Trolley" : `Bus ${service.slice(4)}`;
+      const status = service === "trolley" ? state.trolleyStatus : state.busPositionStatus;
+      const count = fresh.filter(v => v.service === service).length;
+      return `${label}: ${status === "loading" ? "connecting…" : status === "unavailable" ? count ? `${count} recent last-known · refresh failed` : "feed unavailable" : count ? `${count} recent` : "no fresh positions in view area"}`;
+    }).join(" · ");
   }
   function showAllTrolleys() {
     const fresh = freshVehicles();
@@ -49,19 +48,20 @@
     if (!liveMap || !$("goLive").open) return;
     const fresh = freshVehicles();
     $("goVehicleStatus").textContent = liveStatusText(fresh);
-    $("goLiveRefresh").disabled = state.refreshing;
-    $("goLiveRefresh").textContent = state.refreshing ? "Refreshing…" : "Refresh positions";
+    $("goLiveRefresh").disabled = state.refreshing || state.busPositionsRefreshing;
+    $("goLiveRefresh").textContent = $("goLiveRefresh").disabled ? "Refreshing…" : "Refresh positions";
+    document.querySelectorAll("[data-live-filter]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.liveFilter === liveFilter)));
     $("goShowAll").disabled = !fresh.length;
     const focused = document.activeElement?.dataset.vehicle;
     liveLayer.clearLayers();
     $("goVehicleList").replaceChildren();
     fresh.forEach((v, index) => {
-      const label = `${vehicleName(v)} · updated ${vehicleAge(v)}`;
+      const label = `${vehicleName(v)} · ${v.headsign || "Biscayne"} · vehicle ${v.ShortName} · updated ${vehicleAge(v)}`;
       const marker = L.marker([Number(v.Lat), Number(v.Lng)], { title: label, alt: label,
-        icon: L.divIcon({ className: "go-live-vehicle", html: "T", iconSize: [34, 34], iconAnchor: [17, 17] })
+        icon: L.divIcon({ className: `go-live-vehicle ${v.service}`, html: v.service === "trolley" ? "T" : v.service.slice(4), iconSize: [34, 34], iconAnchor: [17, 17] })
       }).addTo(liveLayer).bindPopup(el("span", "", label));
       const button = el("button", "go-vehicle-row"); button.type = "button"; button.dataset.vehicle = String(index);
-      button.append(el("strong", "", vehicleName(v)), el("span", "", `Updated ${vehicleAge(v)} · show on map`));
+      button.append(el("strong", "", vehicleName(v)), el("span", "", `#${v.ShortName} · ${vehicleAge(v)} · show on map`));
       button.addEventListener("click", () => { fitOnArrival = false; liveMap.setView(marker.getLatLng(), 16, { animate: false }); marker.openPopup(); });
       $("goVehicleList").append(button);
     });
@@ -88,6 +88,7 @@
   $("goLive").addEventListener("close", () => $("goLiveOpen").focus({ preventScroll: true }));
   $("goShowAll").addEventListener("click", showAllTrolleys);
   $("goLiveRefresh").addEventListener("click", () => refreshVehicles());
+  document.querySelectorAll("[data-live-filter]").forEach(button => button.addEventListener("click", () => { liveFilter = button.dataset.liveFilter; fitOnArrival = true; renderLiveView(); }));
   const trip = { from: "place:home", to: "place:downtown", preference: "soonest", selected: null, role: "to", preview: null, map: null, markers: [], opener: null };
   const mapPoints = new Map();
   let nearbyCenter = null;
@@ -107,6 +108,79 @@
   const serviceToken = (id) => id === "trolley" ? "T" : id.slice(4);
   const point = (value) => value.startsWith("place:") ? TransitEngine.PLACES[value.slice(6)] : locations().find((item) => `location:${item.id}` === value) || (trip.preview?.value === value ? trip.preview : null);
   const name = (value) => point(value)?.name || "Choose a place";
+  const readTrips = key => {
+    try { return TransitEngine.normalizeSavedTrips(JSON.parse(localStorage.getItem(key))); } catch { return []; }
+  };
+  let savedTrips = readTrips("miami-saved-trips-v1"), removedTrips = null;
+  function snapshotEndpoint(value) {
+    const p = point(value);
+    return p ? { value, lat: p.lat, lng: p.lng, name: p.name } : null;
+  }
+  function snapshotTrip(label = "Last trip") {
+    return TransitEngine.normalizeSavedTrips({ version: 1, items: [{ name: label, from: snapshotEndpoint(trip.from), to: snapshotEndpoint(trip.to), preference: trip.preference, selected: trip.selected }] })[0];
+  }
+  function storeTrips(key, items) {
+    try { localStorage.setItem(key, JSON.stringify({ version: 1, items })); return true; }
+    catch { return false; }
+  }
+  function rememberTrip() {
+    const snapshot = snapshotTrip();
+    if (snapshot) storeTrips("miami-last-trip-v1", [snapshot]);
+  }
+  function applySavedTrip(item) {
+    for (const endpoint of [item.from, item.to]) {
+      if (endpoint.value.startsWith("location:") && !state.locations.some(p => `location:${p.id}` === endpoint.value)) {
+        const id = endpoint.value.slice(9);
+        mapPoints.set(id, { ...endpoint, id, services: [], detail: "Saved map point · boarding recalculated" });
+      }
+    }
+    trip.from = item.from.value; trip.to = item.to.value; trip.preference = item.preference; trip.selected = item.selected;
+    // A saved location is a place, not a cached departure prediction.
+    render(); rememberTrip();
+  }
+  const savedName = endpoint => endpoint.value.startsWith("place:") ? TransitEngine.PLACES[endpoint.value.slice(6)].name : endpoint.name;
+  function renderSavedTrips() {
+    $("goSavedList").replaceChildren();
+    if (!savedTrips.length) $("goSavedList").append(el("p", "", "Pick your From and To, then save the trip here for next time."));
+    savedTrips.forEach((item, index) => {
+      const row = el("div", "go-saved-row"), use = el("button"), remove = el("button", "", "×");
+      use.type = remove.type = "button";
+      use.append(el("strong", "", item.name), el("small", "", `${savedName(item.from)} → ${savedName(item.to)}`));
+      use.addEventListener("click", () => { applySavedTrip(item); $("goSaved").close(); });
+      remove.setAttribute("aria-label", `Remove saved trip ${item.name}`);
+      remove.addEventListener("click", () => {
+        const next = savedTrips.filter((_, i) => i !== index);
+        if (!storeTrips("miami-saved-trips-v1", next)) { $("goSaveStatus").textContent = "Device storage is unavailable. Nothing removed."; return; }
+        removedTrips = savedTrips; savedTrips = next; renderSavedTrips(); $("goUndoRemove").hidden = false;
+        $("goSaveStatus").textContent = "Trip removed. You can undo this.";
+      });
+      row.append(use, remove); $("goSavedList").append(row);
+    });
+  }
+  $("goSavedOpen").addEventListener("click", () => {
+    renderSavedTrips();
+    $("goSaveSummary").textContent = `${name(trip.from)} → ${name(trip.to)}`;
+    $("goTripName").value = `${name(trip.from)} → ${name(trip.to)}`.slice(0, 48);
+    $("goSaved").showModal(); $("goSavedClose").focus();
+  });
+  $("goSavedClose").addEventListener("click", () => $("goSaved").close());
+  $("goSaved").addEventListener("close", () => $("goSavedOpen").focus({ preventScroll: true }));
+  $("goSaveForm").addEventListener("submit", event => {
+    event.preventDefault();
+    const item = snapshotTrip($("goTripName").value.trim());
+    if (!item) { $("goSaveStatus").textContent = "Choose valid places and a trip name first."; return; }
+    const others = savedTrips.filter(s => s.from.value !== item.from.value || s.to.value !== item.to.value);
+    if (others.length >= 8) { $("goSaveStatus").textContent = "You have 8 saved trips. Remove one to make room."; return; }
+    const next = [item, ...others];
+    if (!storeTrips("miami-saved-trips-v1", next)) { $("goSaveStatus").textContent = "Device storage is unavailable. This trip could not be saved."; return; }
+    savedTrips = next; removedTrips = null; $("goUndoRemove").hidden = true; renderSavedTrips();
+    $("goSaveStatus").textContent = "Saved on this device. Tap the trip above to use it anytime.";
+  });
+  $("goUndoRemove").addEventListener("click", () => {
+    if (removedTrips && storeTrips("miami-saved-trips-v1", removedTrips)) { savedTrips = removedTrips; removedTrips = null; $("goUndoRemove").hidden = true; renderSavedTrips(); $("goSaveStatus").textContent = "Trip restored."; }
+  });
+  function reverseTrip() { [trip.from, trip.to] = [trip.to, trip.from]; trip.selected = null; render(); rememberTrip(); }
+  $("goBack").addEventListener("click", reverseTrip);
   const entries = () => [
     ...Object.entries(TransitEngine.PLACES).map(([key, place]) => ({ ...place, value: `place:${key}`, services: [], detail: place.detail })),
     ...state.locations.map((location) => ({ ...location, value: `location:${location.id}` })),
@@ -156,7 +230,7 @@
         button.append(el("span", `go-service ${option.id}`, serviceToken(option.id)), copy, el("span", "go-option-time", option.wait < option.walkToStop + option.buffer ? "Too tight" : `~${time(plus(now, option.arrivalMinutes))}`));
         button.setAttribute("aria-label", `Select ${option.label}, ${option.wait < option.walkToStop + option.buffer ? "may be too tight to catch" : `estimated arrival ${time(plus(now, option.arrivalMinutes))}`}`);
         const selectedIndicator = el("span", "go-option-select", option.id === ride.id ? "✓" : ""); selectedIndicator.setAttribute("aria-hidden", "true"); button.append(selectedIndicator);
-        button.addEventListener("click", () => { trip.selected = option.id; render(); document.querySelector(`[data-ride="${option.id}"]`)?.focus({ preventScroll: true }); }); $("goOptions").append(button);
+        button.addEventListener("click", () => { trip.selected = option.id; render(); rememberTrip(); document.querySelector(`[data-ride="${option.id}"]`)?.focus({ preventScroll: true }); }); $("goOptions").append(button);
       });
       if (plan.options.length === 1) $("goOptions").append(el("p", "go-footnote", "Only one direct service found. Bus stops currently cover Edgewater to Downtown."));
     }
@@ -235,8 +309,7 @@
   }
   document.querySelectorAll("[data-go-role]").forEach((button) => button.addEventListener("click", () => openChooser(button.dataset.goRole, button)));
   document.querySelectorAll("[data-go-place]").forEach((button) => button.addEventListener("click", () => { openChooser("to", button); preview(entries().find((entry) => entry.value === `place:${button.dataset.goPlace}`)); requestAnimationFrame(() => preview(entries().find((entry) => entry.value === `place:${button.dataset.goPlace}`))); }));
-  document.querySelectorAll("[data-go-preference]").forEach((button) => button.addEventListener("click", () => { trip.preference = button.dataset.goPreference; trip.selected = null; render(); }));
-  $("goSwap").addEventListener("click", () => { [trip.from, trip.to] = [trip.to, trip.from]; trip.selected = null; render(); });
+  document.querySelectorAll("[data-go-preference]").forEach((button) => button.addEventListener("click", () => { trip.preference = button.dataset.goPreference; trip.selected = null; render(); rememberTrip(); }));
   $("goMapOpen").addEventListener("click", () => openChooser("to", $("goMapOpen")));
   $("goSearch").addEventListener("input", renderList);
   $("goAllStops").addEventListener("click", () => { nearbyCenter = null; $("goSearch").value = ""; $("goMapHint").textContent = "Move the map under the crosshair, or tap a stop."; renderList(); $("goPlaceList").scrollTop = 0; });
@@ -255,9 +328,10 @@
   });
   $("goClose").addEventListener("click", () => $("goChooser").close());
   $("goChooser").addEventListener("close", () => trip.opener?.focus());
-  $("goConfirm").addEventListener("click", () => { if (!trip.preview || $("goConfirm").disabled) return; if (trip.preview.id?.startsWith("go-map-")) mapPoints.set(trip.preview.id, { ...trip.preview }); trip[trip.role] = trip.preview.value; for (const [id] of mapPoints) if (![trip.from, trip.to].includes(`location:${id}`)) mapPoints.delete(id); trip.selected = null; $("goChooser").close(); render(); });
+  $("goConfirm").addEventListener("click", () => { if (!trip.preview || $("goConfirm").disabled) return; if (trip.preview.id?.startsWith("go-map-")) mapPoints.set(trip.preview.id, { ...trip.preview }); trip[trip.role] = trip.preview.value; for (const [id] of mapPoints) if (![trip.from, trip.to].includes(`location:${id}`)) mapPoints.delete(id); trip.selected = null; $("goChooser").close(); render(); rememberTrip(); });
   $("goRefresh").addEventListener("click", async () => { $("goRefresh").disabled = true; await refreshVehicles(); render(); });
   window.addEventListener("transit-data", () => { currentBuses(new Date()); render(); renderLiveView(); });
   window.setInterval(() => { if (!document.hidden) { if (!$("goChooser").open && !$("goLive").open) render(); renderLiveView(); } }, 15000);
-  render();
+  const lastTrip = readTrips("miami-last-trip-v1")[0];
+  if (lastTrip) applySavedTrip(lastTrip); else render();
 })();

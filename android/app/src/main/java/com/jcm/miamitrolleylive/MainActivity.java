@@ -73,6 +73,7 @@ public class MainActivity extends Activity {
                 if (url == null) return error("Invalid request");
                 if (isAppOrigin(requestUri) && url.getPath().equals("/api/tracker")) return trackerResponse(url);
                 if (isAppOrigin(requestUri) && url.getPath().equals("/api/bus")) return busResponse(url);
+                if (isAppOrigin(requestUri) && url.getPath().equals("/api/bus-positions")) return busPositionsResponse();
                 if (isAppOrigin(requestUri)) return assetResponse(url.getPath());
                 return super.shouldInterceptRequest(view, request);
             }
@@ -142,6 +143,25 @@ public class MainActivity extends Activity {
         }
         }
         return error("City tracker unavailable");
+    }
+
+    private WebResourceResponse busPositionsResponse() {
+        HttpURLConnection connection = null;
+        try {
+            Uri uri = Uri.parse("https://gis.miamidade.gov/arcgis/rest/services/BusMetro_RealTime/BusRealTime/MapServer/0/query").buildUpon()
+                .appendQueryParameter("f", "json").appendQueryParameter("where", "RouteID IN (3,9)")
+                .appendQueryParameter("outFields", "BusID,BusName,RouteID,Latitude,Longitude,BusTimeStampUTC,DirectionName,TripHeadsign")
+                .appendQueryParameter("returnGeometry", "false").build();
+            connection = (HttpURLConnection) new URL(uri.toString()).openConnection();
+            connection.setConnectTimeout(5_000);
+            connection.setReadTimeout(5_000);
+            if (connection.getResponseCode() != 200) return error("County bus positions unavailable");
+            String body = readAll(connection.getInputStream());
+            org.json.JSONObject data = new org.json.JSONObject(body);
+            if (data.has("error") || data.optBoolean("exceededTransferLimit") || data.optJSONArray("features") == null) return error("Invalid bus positions");
+            return jsonResponse(body, 200, "OK");
+        } catch (Exception ignored) { return error("County bus positions unavailable"); }
+        finally { if (connection != null) connection.disconnect(); }
     }
 
     private WebResourceResponse busResponse(URL localUrl) {

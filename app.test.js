@@ -54,6 +54,20 @@ test("an empty successful response is not an outage and clears old positions", a
   assert.equal(vm.runInContext("state.trolleyStatus", context), "ready");
   assert.equal(vm.runInContext("state.vehicles.length", context), 0);
 });
+test("bus GPS works independently of failed trolley and arrival providers", async () => {
+  const timestamp = Date.now()-20000;
+  const context = await boot(async url => {
+    if (url !== "/api/bus-positions") throw new Error("other provider offline");
+    return {ok:true,json:async()=>({features:[{attributes:{BusID:5,RouteID:9,Latitude:25.79,Longitude:-80.19,BusTimeStampUTC:timestamp,DirectionName:"Northbound"}}]})};
+  });
+  assert.equal(vm.runInContext("state.busPositionStatus", context), "ready");
+  assert.equal(vm.runInContext("state.busVehicles[0].Tim", context), timestamp/1000);
+  assert.equal(vm.runInContext("state.trolleyStatus", context), "unavailable");
+  context.fetch = async () => {throw new Error("offline");};
+  await vm.runInContext("refreshBusPositions()", context);
+  assert.equal(vm.runInContext("state.busPositionStatus", context), "unavailable");
+  assert.equal(vm.runInContext("state.busVehicles[0].Tim", context), timestamp/1000);
+});
 test("released page has one interface and no prototype navigation", () => {
   const html = fs.readFileSync("index.html", "utf8");
   assert.doesNotMatch(html, /data-view-tab|boardPlanner|timelineControls|TEST VIEWS/);
