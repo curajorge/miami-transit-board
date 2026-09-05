@@ -21,28 +21,35 @@
         <div class="go-endpoints">
           <button type="button" data-go-role="from" aria-haspopup="dialog"><span class="go-node">A</span><span><small>From</small><strong id="goFrom">Whole Foods</strong></span></button>
           <button type="button" data-go-role="to" aria-haspopup="dialog"><span class="go-node go-node-end">B</span><span><small>To</small><strong id="goTo">Downtown</strong></span></button>
-          <button type="button" class="go-swap" id="goSwap" aria-label="Reverse this trip">⇅</button>
         </div>
         <div class="go-shortcuts" aria-label="Choose a familiar destination"><button type="button" data-go-place="home">Whole Foods</button><button type="button" data-go-place="downtown">Downtown</button><button type="button" data-go-place="brickell">Brickell</button></div>
+        <div class="go-trip-actions"><button id="goSavedOpen" type="button" aria-haspopup="dialog">Saved trips</button><button id="goBack" type="button">Go back ⇄</button></div>
         <div class="go-preferences" role="group" aria-label="Choose a ride preference"><button type="button" data-go-preference="soonest" aria-pressed="true">Arrive sooner</button><button type="button" data-go-preference="free" aria-pressed="false">Free ride</button><button type="button" data-go-preference="walk" aria-pressed="false">Less walking</button></div>
         <div id="goJourney" aria-live="polite"></div>
         <div class="go-options-heading"><h2>Compare rides</h2><span>Estimated arrival</span></div>
         <div id="goOptions" class="go-options"></div>
-        <button class="go-map-open" id="goLiveOpen" type="button" aria-haspopup="dialog"><span aria-hidden="true">⌖</span> Live trolleys</button>
+        <button class="go-map-open" id="goLiveOpen" type="button" aria-haspopup="dialog"><span aria-hidden="true">⌖</span> Live buses &amp; trolley</button>
         <button class="go-map-open" id="goMapOpen" type="button" aria-haspopup="dialog">Choose stops on the map</button>
-        <p class="go-footnote go-bus-scope">Metrobus 3 &amp; 9: arrival estimates only. Bus vehicle locations are not available in this app.</p>
+        <p class="go-footnote go-bus-scope">Live map: Biscayne trolley + buses 3 &amp; 9 near Edgewater and Downtown. Positions are separate from arrival estimates.</p>
         <div class="go-freshness"><p id="goFreshness">Checking live arrivals…</p><button type="button" id="goRefresh">Refresh</button></div>
         <p class="go-footnote">Biscayne trolley + Metrobus 3 &amp; 9. Times are estimates, not guarantees. Independent Miami transit app.</p>
       </section>
 
       <dialog id="goLive" class="go-live" aria-labelledby="goLiveTitle">
-        <header><div><h2 id="goLiveTitle">Live Biscayne trolleys</h2><p>Vehicle positions, not predicted arrival times.</p></div><button type="button" id="goLiveClose" aria-label="Close live trolleys">×</button></header>
+        <header><div><h2 id="goLiveTitle">Live vehicles</h2><p>Biscayne trolley · Metrobus 3 &amp; 9</p></div><button type="button" id="goLiveClose" aria-label="Close live vehicles">×</button></header>
+        <div class="go-live-filters" role="group" aria-label="Vehicle service"><button type="button" data-live-filter="all" aria-pressed="true">All</button><button type="button" data-live-filter="trolley" aria-pressed="false">Trolley</button><button type="button" data-live-filter="bus-3" aria-pressed="false">Bus 3</button><button type="button" data-live-filter="bus-9" aria-pressed="false">Bus 9</button></div>
         <p id="goVehicleStatus" class="go-live-status" role="status">Checking trolley positions…</p>
-        <div id="goVehicleMap" aria-label="Live Biscayne trolley vehicle map"></div>
+        <div id="goVehicleMap" aria-label="Live trolley and Metrobus vehicle map"></div>
         <p id="goTileError" class="go-live-status" role="status" hidden>Map tiles could not load. Vehicle details remain available below.</p>
-        <div class="go-live-actions"><button id="goShowAll" type="button">Show all trolleys</button><button id="goLiveRefresh" type="button">Refresh positions</button></div>
-        <div id="goVehicleList" class="go-vehicle-list" aria-label="Trolley positions"></div>
-        <p class="go-live-note">Yellow icons are trolleys; the line follows the saved Biscayne stops. Updates every 30 seconds. Positions older than 4 minutes are hidden. Metrobus vehicle tracking is not connected.</p>
+        <div class="go-live-actions"><button id="goShowAll" type="button">Show all in view</button><button id="goLiveRefresh" type="button">Refresh positions</button></div>
+        <div id="goVehicleList" class="go-vehicle-list" aria-label="Vehicle positions"></div>
+        <p class="go-live-note">T = trolley · 3 / 9 = bus route. Buses shown near Edgewater–Downtown only. The line follows saved trolley stops. Updates every 30 sec; positions over 4 min old are hidden. No vehicles shown does not mean no service.</p>
+      </dialog>
+      <dialog id="goSaved" class="go-settings go-saved" aria-labelledby="goSavedTitle">
+        <header><h2 id="goSavedTitle">Saved trips</h2><button id="goSavedClose" type="button" aria-label="Close saved trips">×</button></header>
+        <div id="goSavedList"></div>
+        <form id="goSaveForm"><label for="goTripName">Save your current trip</label><p id="goSaveSummary"></p><input id="goTripName" required maxlength="48" placeholder="Give this trip a name" /><button type="submit">Save trip</button></form>
+        <p id="goSaveStatus" role="status">Saved only on this device. No account needed.</p><button id="goUndoRemove" type="button" hidden>Undo removal</button>
       </dialog>
       <dialog id="goSettings" class="go-settings" aria-labelledby="goSettingsTitle">
         <header><h2 id="goSettingsTitle">Settings</h2><button id="goSettingsClose" type="button" aria-label="Close settings">×</button></header>

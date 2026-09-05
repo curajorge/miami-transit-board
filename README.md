@@ -25,9 +25,9 @@ No AI is used for trip recommendations. Every recommendation comes from explicit
 
 Actual mobile-web captures, not mockups. Arrival times are a snapshot, not a promise; rough estimates are labeled in the app. [Screenshot notes](docs/screenshots/README.md).
 
-Choose **From** and **To**, compare rides, then expand the boarding steps. Open **Live trolleys** for a dedicated vehicle map, update ages, and **Show all trolleys**. Use **Choose stops on the map** to select a trip endpoint. Use **⚙ Settings** for appearance; the choice stays on your device.
+Choose **From** and **To**, compare rides, then expand the boarding steps. Open **Live buses & trolley** for vehicle positions, update ages, and All / Trolley / Bus 3 / Bus 9 filters. Use **Choose stops on the map** to select a trip endpoint. **Saved trips** keeps up to eight everyday journeys on your device; **Go back** reverses the trip and recalculates boarding. Your last trip is remembered. **⚙ Settings** controls appearance.
 
-Metrobus integration supplies arrival estimates only, not moving bus locations. A failed trolley refresh is labeled explicitly; recent last-known positions retain their original timestamps, and positions older than four minutes are hidden. Both web and Android tracker requests make at most one retry. Provider availability is not guaranteed.
+Metrobus GPS uses a separate public County feed for Routes 3 and 9 near Edgewater–Downtown. GPS locations are not official arrival predictions; the older arrival feed can still be unavailable. Failed position refreshes are labeled explicitly; recent last-known positions retain their original timestamps, and positions older than four minutes are hidden. Both web and Android trolley requests make at most one retry. Provider availability is not guaranteed.
 
 ## What works
 
@@ -102,7 +102,7 @@ Review the generated diff and run `npm run verify` before committing it.
 
 Version 0.2.0 makes the chosen V3 design the only interface. V1 (Board), V2 (Route Lens), and the comparison tabs remain recoverable at commit [4df9501](https://github.com/curajorge/miami-transit-board/commit/4df9501). Their HTML, styles, and background map are not shipped in the current app.
 
-The Android build above is a debug-signed build for direct device testing, not an app-store release. Public distribution still requires an owner-controlled release signing key and store review. A public web deployment requires HTTPS and appropriate upstream proxy capacity. Trip selections currently reset on reload.
+The Android build above is a debug-signed build for direct device testing, not an app-store release. Public distribution still requires an owner-controlled release signing key and store review. A public web deployment requires HTTPS and appropriate upstream proxy capacity. Saved trips and the last trip remain on-device; clearing app/site storage removes them.
 
 Times remain estimates: walking uses straight-line distance, ride durations use stop counts, and missing live arrivals fall back to a 15-minute waiting assumption. The app does not validate service hours or plan transfers. See DATA_SOURCES.md before relying on it for important trips.
 

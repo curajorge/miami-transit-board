@@ -155,5 +155,34 @@
       reason: `${bestReason} Leave time includes a ${best.buffer}-minute boarding cushion.`,
       minutesUntilLeave: Math.max(0, Math.round((leaveAt - now) / 60000)) };
   }
-  return { PLACES, normalizeStops, busStopsForCorridor, mergeTransitLocations, haversineMiles, trolleyWait, planTrip };
+  function normalizeBusPositions(data) {
+    if (!Array.isArray(data?.features) || data.error || data.exceededTransferLimit) throw new Error("Invalid or incomplete bus-position response");
+    const seen = new Set();
+    return data.features.flatMap(feature => {
+      const a = feature?.attributes;
+      if (!a || ![3, 9].includes(Number(a.RouteID)) || [a.BusID, a.Latitude, a.Longitude, a.BusTimeStampUTC].some(v => v == null || v === "" || !Number.isFinite(Number(v)))) return [];
+      const lat = Number(a.Latitude), lng = Number(a.Longitude), timestamp = Number(a.BusTimeStampUTC);
+      if (lat < 25.6 || lat > 26 || lng < -80.4 || lng > -80 || timestamp < 1e12) return [];
+      const id = `bus-${a.RouteID}-${a.BusID}`;
+      if (seen.has(id)) return [];
+      seen.add(id);
+      return [{ ID: id, ShortName: String(a.BusName || a.BusID).slice(0, 40), service: `bus-${a.RouteID}`, Lat: lat, Lng: lng, Tim: timestamp / 1000,
+        direction: ["Northbound", "Southbound"].includes(a.DirectionName) ? a.DirectionName : "Direction unavailable", headsign: String(a.TripHeadsign || "").slice(0, 140) }];
+    });
+  }
+  function normalizeSavedTrips(raw) {
+    if (raw?.version !== 1 || !Array.isArray(raw.items)) return [];
+    const endpoint = value => {
+      if (!value || typeof value.value !== "string") return null;
+      if (/^place:(home|downtown|brickell)$/.test(value.value)) return { value: value.value };
+      if (!/^location:[a-z0-9.-]{1,120}$/i.test(value.value) || !Number.isFinite(value.lat) || !Number.isFinite(value.lng) || value.lat < 25.7 || value.lat > 25.86 || value.lng < -80.25 || value.lng > -80.1) return null;
+      return { value: value.value, lat: value.lat, lng: value.lng, name: String(value.name || "Saved map point").slice(0, 80) };
+    };
+    return raw.items.slice(0, 8).flatMap(item => {
+      const from = endpoint(item?.from), to = endpoint(item?.to);
+      if (!from || !to || typeof item.name !== "string" || !item.name.trim()) return [];
+      return [{ name: item.name.trim().slice(0, 48), from, to, preference: ["soonest", "free", "walk"].includes(item.preference) ? item.preference : "soonest", selected: ["trolley", "bus-3", "bus-9"].includes(item.selected) ? item.selected : null }];
+    });
+  }
+  return { PLACES, normalizeStops, busStopsForCorridor, mergeTransitLocations, haversineMiles, trolleyWait, planTrip, normalizeBusPositions, normalizeSavedTrips };
 });

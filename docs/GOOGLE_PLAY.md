@@ -28,7 +28,7 @@ Status: Android prototype for direct device testing. Not published on Google Pla
 - [ ] Complete the testing and production-access requirements shown for the owner's Play account.
 - [ ] Review Play's pre-launch report, then stage rollout with a rollback/support plan.
 
-Current design has no account system, advertising or analytics SDK, and requests only Internet permission. Appearance is stored locally. Map and transit providers receive network requests; this still requires a privacy review before publication.
+Current design has no account system, advertising or analytics SDK, and requests only Internet permission. Appearance, saved trips (including selected location coordinates), and the last trip are stored locally. Map and transit providers receive network requests; this still requires a privacy review before publication. Feedback collection remains future work and must be explicitly opt-in if added.
 
 ## Official submission references
 
