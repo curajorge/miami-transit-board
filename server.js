@@ -22,7 +22,7 @@ function send(res, status, body, type = "application/json; charset=utf-8") {
 
 async function cachedCurl(key, args, ttl = 15_000) {
   const cached = responseCache.get(key);
-  if (cached && Date.now() - cached.time < ttl) {
+  if (cached && Date.now() - cached.time < (cached.error ? 1000 : ttl)) {
     if (cached.error) throw new Error(cached.error);
     return cached.text;
   }
@@ -54,7 +54,7 @@ async function proxyTracker(reqUrl, res) {
   try {
     // The legacy service returns HTTP 500 to browsers and Node's HTTP client.
     // execFile passes the URL as a literal argument; no shell is involved.
-    const text = await cachedCurl(`tracker:${key}`, ["--proto", "=https", "--proto-redir", "=https", "-L", "--fail", "--silent", "--show-error", "--max-time", "10", upstream.toString()]);
+    const text = await cachedCurl(`tracker:${key}`, ["--proto", "=https", "--proto-redir", "=https", "-L", "--fail", "--silent", "--show-error", "--max-time", "8", "--retry", "1", "--retry-delay", "1", "--retry-max-time", "18", "--max-filesize", "5242880", upstream.toString()]);
     const match = text.match(/^x\((.*)\);?\s*$/s);
     if (!match) throw new Error("Unexpected upstream response");
     const payload = JSON.parse(match[1]);

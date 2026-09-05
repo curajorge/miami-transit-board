@@ -21,7 +21,73 @@
   $("goSettingsOpen").addEventListener("click", () => $("goSettings").showModal());
   $("goSettingsClose").addEventListener("click", () => $("goSettings").close());
   $("goSettings").addEventListener("close", () => $("goSettingsOpen").focus({ preventScroll: true }));
-  let vehicleMarkers = [];
+  let liveMap = null, liveLayer = null, fitOnArrival = false;
+  const freshVehicles = () => state.vehicles.filter(v => {
+    const age = Date.now() / 1000 - Number(v.Tim);
+    return age >= 0 && age < 240;
+  });
+  const vehicleName = v => `Trolley ${String(v.ShortName || v.ID || "").trim()}`;
+  const vehicleAge = v => {
+    const seconds = Math.max(0, Math.floor(Date.now() / 1000 - Number(v.Tim)));
+    return seconds < 60 ? `${seconds} sec ago` : `${Math.floor(seconds / 60)} min ago`;
+  };
+  function liveStatusText(fresh) {
+    if (state.trolleyStatus === "loading") return "Connecting to the City tracker…";
+    if (state.trolleyStatus === "unavailable") return fresh.length
+      ? "Refresh failed. Showing recent last-known positions with their actual ages."
+      : "City tracker unavailable after retry. Try Refresh positions.";
+    if (!fresh.length) return state.vehicles.length
+      ? "Only stale or invalid-time positions received. No current vehicles to show."
+      : "The tracker returned no vehicle positions. This does not confirm service has stopped.";
+    return `${fresh.length} ${fresh.length === 1 ? "trolley" : "trolleys"} reporting · latest update ${vehicleAge(fresh.slice().sort((a, b) => Number(b.Tim) - Number(a.Tim))[0])}${state.refreshing ? " · refreshing…" : ""}`;
+  }
+  function showAllTrolleys() {
+    const fresh = freshVehicles();
+    if (liveMap && fresh.length) liveMap.fitBounds(fresh.map(v => [Number(v.Lat), Number(v.Lng)]), { padding: [36, 36], maxZoom: 15, animate: false });
+  }
+  function renderLiveView() {
+    if (!liveMap || !$("goLive").open) return;
+    const fresh = freshVehicles();
+    $("goVehicleStatus").textContent = liveStatusText(fresh);
+    $("goLiveRefresh").disabled = state.refreshing;
+    $("goLiveRefresh").textContent = state.refreshing ? "Refreshing…" : "Refresh positions";
+    $("goShowAll").disabled = !fresh.length;
+    const focused = document.activeElement?.dataset.vehicle;
+    liveLayer.clearLayers();
+    $("goVehicleList").replaceChildren();
+    fresh.forEach((v, index) => {
+      const label = `${vehicleName(v)} · updated ${vehicleAge(v)}`;
+      const marker = L.marker([Number(v.Lat), Number(v.Lng)], { title: label, alt: label,
+        icon: L.divIcon({ className: "go-live-vehicle", html: "T", iconSize: [34, 34], iconAnchor: [17, 17] })
+      }).addTo(liveLayer).bindPopup(el("span", "", label));
+      const button = el("button", "go-vehicle-row"); button.type = "button"; button.dataset.vehicle = String(index);
+      button.append(el("strong", "", vehicleName(v)), el("span", "", `Updated ${vehicleAge(v)} · show on map`));
+      button.addEventListener("click", () => { fitOnArrival = false; liveMap.setView(marker.getLatLng(), 16, { animate: false }); marker.openPopup(); });
+      $("goVehicleList").append(button);
+    });
+    if (focused != null) $("goVehicleList").querySelector(`[data-vehicle="${focused}"]`)?.focus({ preventScroll: true });
+    if (fresh.length && fitOnArrival) { showAllTrolleys(); fitOnArrival = false; }
+  }
+  $("goLiveOpen").addEventListener("click", () => {
+    $("goLive").showModal();
+    if (!liveMap) {
+      liveMap = L.map("goVehicleMap", { zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false }).setView([25.79, -80.19], 13);
+      const tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(liveMap);
+      tiles.on("tileerror", () => { $("goTileError").hidden = false; });
+      tiles.on("loading", () => { $("goTileError").hidden = true; });
+      const route = TransitEngine.normalizeStops(state.stops).sort((a, b) => a.sequence - b.sequence);
+      L.polyline(route.map(s => [s.lat, s.lng]), { color: "#007a72", weight: 3, opacity: .65, interactive: false }).addTo(liveMap);
+      liveLayer = L.layerGroup().addTo(liveMap);
+      liveMap.on("dragstart zoomstart", () => { fitOnArrival = false; });
+    }
+    requestAnimationFrame(() => { liveMap.invalidateSize(); fitOnArrival = true; renderLiveView(); });
+    $("goLiveClose").focus();
+    refreshVehicles();
+  });
+  $("goLiveClose").addEventListener("click", () => $("goLive").close());
+  $("goLive").addEventListener("close", () => $("goLiveOpen").focus({ preventScroll: true }));
+  $("goShowAll").addEventListener("click", showAllTrolleys);
+  $("goLiveRefresh").addEventListener("click", () => refreshVehicles());
   const trip = { from: "place:home", to: "place:downtown", preference: "soonest", selected: null, role: "to", preview: null, map: null, markers: [], opener: null };
   const mapPoints = new Map();
   let nearbyCenter = null;
@@ -164,7 +230,6 @@
       marker.on("click", () => preview(entry, false)); return { marker, entry };
     });
     renderList();
-    renderVehicles();
     requestAnimationFrame(() => { trip.map.invalidateSize(); const current = entries().find((entry) => entry.value === trip[role]) || point(trip[role]); if (current) preview({ ...current, value: trip[role] }); });
     $("goClose").focus();
   }
@@ -172,14 +237,7 @@
   document.querySelectorAll("[data-go-place]").forEach((button) => button.addEventListener("click", () => { openChooser("to", button); preview(entries().find((entry) => entry.value === `place:${button.dataset.goPlace}`)); requestAnimationFrame(() => preview(entries().find((entry) => entry.value === `place:${button.dataset.goPlace}`))); }));
   document.querySelectorAll("[data-go-preference]").forEach((button) => button.addEventListener("click", () => { trip.preference = button.dataset.goPreference; trip.selected = null; render(); }));
   $("goSwap").addEventListener("click", () => { [trip.from, trip.to] = [trip.to, trip.from]; trip.selected = null; render(); });
-  $("goMapOpen").addEventListener("click", () => {
-    openChooser("to", $("goMapOpen"));
-    requestAnimationFrame(() => {
-      const now = Date.now() / 1000;
-      const points = state.vehicles.filter(v => now - Number(v.Tim) >= 0 && now - Number(v.Tim) < 240).map(v => [Number(v.Lat), Number(v.Lng)]);
-      if (points.length) trip.map.fitBounds(points, { padding: [30, 30], maxZoom: 15, animate: false });
-    });
-  });
+  $("goMapOpen").addEventListener("click", () => openChooser("to", $("goMapOpen")));
   $("goSearch").addEventListener("input", renderList);
   $("goAllStops").addEventListener("click", () => { nearbyCenter = null; $("goSearch").value = ""; $("goMapHint").textContent = "Move the map under the crosshair, or tap a stop."; renderList(); $("goPlaceList").scrollTop = 0; });
   document.querySelectorAll("[data-go-assign]").forEach((button) => button.addEventListener("click", () => assignRole(button.dataset.goAssign)));
@@ -199,20 +257,7 @@
   $("goChooser").addEventListener("close", () => trip.opener?.focus());
   $("goConfirm").addEventListener("click", () => { if (!trip.preview || $("goConfirm").disabled) return; if (trip.preview.id?.startsWith("go-map-")) mapPoints.set(trip.preview.id, { ...trip.preview }); trip[trip.role] = trip.preview.value; for (const [id] of mapPoints) if (![trip.from, trip.to].includes(`location:${id}`)) mapPoints.delete(id); trip.selected = null; $("goChooser").close(); render(); });
   $("goRefresh").addEventListener("click", async () => { $("goRefresh").disabled = true; await refreshVehicles(); render(); });
-  function renderVehicles() {
-    if (!trip.map || !$("goChooser").open) return;
-    vehicleMarkers.forEach(marker => marker.remove());
-    const now = Date.now() / 1000;
-    const fresh = state.vehicles.filter(v => now - Number(v.Tim) >= 0 && now - Number(v.Tim) < 240);
-    vehicleMarkers = fresh.map(v => {
-      const label = `Biscayne trolley ${v.ShortName || v.ID || ""} · updated ${Math.floor((now - Number(v.Tim)) / 60)} min ago`;
-      return L.marker([Number(v.Lat), Number(v.Lng)], { title: label, alt: label, zIndexOffset: 3000,
-        icon: L.divIcon({ className: "go-live-vehicle", html: "T", iconSize: [34, 34], iconAnchor: [17, 17] })
-      }).addTo(trip.map).bindPopup(el("span", "", label));
-    });
-    $("goLiveStatus").textContent = fresh.length ? `${fresh.length} live Biscayne ${fresh.length === 1 ? "trolley" : "trolleys"} · yellow T markers · updates every 30 sec` : "Live trolley positions unavailable. Stops are still shown.";
-  }
-  window.addEventListener("transit-data", () => { currentBuses(new Date()); render(); renderVehicles(); });
-  window.setInterval(() => { if (!document.hidden) { if (!$("goChooser").open) render(); renderVehicles(); } }, 15000);
+  window.addEventListener("transit-data", () => { currentBuses(new Date()); render(); renderLiveView(); });
+  window.setInterval(() => { if (!document.hidden) { if (!$("goChooser").open && !$("goLive").open) render(); renderLiveView(); } }, 15000);
   render();
 })();

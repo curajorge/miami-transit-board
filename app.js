@@ -1,7 +1,7 @@
 /* Transit data only. The single rider interface lives in go.js. */
 const ROUTE_ID = "71276";
 const BUS_STOPS = TransitEngine.busStopsForCorridor(window.MiamiBusStops?.routes);
-const state = { refreshing: false, vehicles: [], buses: [], stops: window.MiamiTrolleyStops?.stops || [], locations: [], lastError: "" };
+const state = { refreshing: false, vehicles: [], buses: [], stops: window.MiamiTrolleyStops?.stops || [], locations: [], lastError: "", trolleyStatus: "loading", trolleyCheckedAt: null };
 const serviceName = service => service === "trolley" ? "Trolley" : service === "bus-3" ? "Bus 3" : "Bus 9";
 const locationServices = location => location.services.map(serviceName).join(" · ");
 function friendlyStopName(value) {
@@ -43,7 +43,7 @@ function buildLocations() {
 
 async function requestData(url) {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 12000);
+  const timeout = window.setTimeout(() => controller.abort(), url.includes("/api/tracker") ? 22000 : 12000);
   try {
     const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) throw new Error("Live transit data is temporarily unavailable.");
@@ -69,7 +69,11 @@ async function refreshVehicles() {
       ...["3", "9"].flatMap(route => ["south", "north"].map(direction => requestData("/api/bus?route=" + route + "&direction=" + direction))),
     ]);
     const [vehicles, ...buses] = results;
-    if (vehicles.status === "fulfilled" && Array.isArray(vehicles.value)) state.vehicles = vehicles.value.filter(vehicle => vehicle && [vehicle.Lat, vehicle.Lng, vehicle.Tim, vehicle.Hea].every(value => value != null && value !== "" && Number.isFinite(Number(value))) && Math.abs(Number(vehicle.Lat)) <= 90 && Math.abs(Number(vehicle.Lng)) <= 180);
+    if (vehicles.status === "fulfilled" && Array.isArray(vehicles.value)) {
+      state.vehicles = vehicles.value.filter(vehicle => vehicle && [vehicle.Lat, vehicle.Lng, vehicle.Tim, vehicle.Hea].every(value => value != null && value !== "" && Number.isFinite(Number(value))) && Number(vehicle.Lat) >= 25.6 && Number(vehicle.Lat) <= 26 && Number(vehicle.Lng) >= -80.4 && Number(vehicle.Lng) <= -80 && (vehicle.RouteID == null || String(vehicle.RouteID) === ROUTE_ID));
+      state.trolleyStatus = "ready";
+      state.trolleyCheckedAt = Date.now();
+    } else state.trolleyStatus = "unavailable";
     state.buses = buses.filter(result => result.status === "fulfilled" && Array.isArray(result.value?.minutes)).map(({ value }) => ({ ...value, minutes: value.minutes.filter(minute => (typeof minute === "number" || (typeof minute === "string" && minute.trim() !== "")) && Number.isFinite(Number(minute)) && Number(minute) >= 0 && Number(minute) <= 240).map(Number).sort((a, b) => a - b) }));
     state.lastError = results.some(result => result.status === "rejected") ? "Some live feeds are unavailable. Estimates and saved stops remain available." : "";
   } finally {

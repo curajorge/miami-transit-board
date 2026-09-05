@@ -108,6 +108,9 @@ public class MainActivity extends Activity {
     }
 
     private WebResourceResponse trackerResponse(URL localUrl) {
+        // One bounded retry for the legacy provider's intermittent failures.
+        // TLS verification remains enabled; no permissive trust manager is used.
+        for (int attempt = 0; attempt < 2; attempt++) {
         HttpURLConnection connection = null;
         try {
             String key = Uri.parse(localUrl.toString()).getQueryParameter("Key");
@@ -118,21 +121,27 @@ public class MainActivity extends Activity {
             URL upstream = new URL(TRACKER + "?" + query + "&callback=x&_=" + System.currentTimeMillis());
             connection = (HttpURLConnection) upstream.openConnection();
             connection.setRequestProperty("User-Agent", "curl/8.14.1");
-            connection.setConnectTimeout(10_000);
-            connection.setReadTimeout(10_000);
-            if (connection.getResponseCode() != 200) return error("City tracker unavailable");
-            String wrapped = readAll(connection.getInputStream());
-            if (!wrapped.startsWith("x(") || !wrapped.endsWith(");")) return error("Unexpected tracker response");
+            connection.setConnectTimeout(4_000);
+            connection.setReadTimeout(4_000);
+            if (connection.getResponseCode() != 200) throw new java.io.IOException("City tracker unavailable");
+            String wrapped = readAll(connection.getInputStream()).trim();
+            if (!wrapped.startsWith("x(") || !wrapped.endsWith(");")) throw new java.io.IOException("Unexpected tracker response");
             String jsonString = wrapped.substring(2, wrapped.length() - 2);
             // The callback contains a JSON string whose contents are themselves JSON.
             // Use Android's parser so encoded polyline backslashes remain valid.
             String json = new JSONArray("[" + jsonString + "]").getString(0);
             return jsonResponse(json, 200, "OK");
         } catch (Exception ignored) {
-            return error("City tracker unavailable");
+            if (attempt == 1) return error("City tracker unavailable after retry");
         } finally {
             if (connection != null) connection.disconnect();
         }
+        try { Thread.sleep(500); } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return error("Tracker request interrupted");
+        }
+        }
+        return error("City tracker unavailable");
     }
 
     private WebResourceResponse busResponse(URL localUrl) {

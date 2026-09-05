@@ -28,11 +28,22 @@
         <div id="goJourney" aria-live="polite"></div>
         <div class="go-options-heading"><h2>Compare rides</h2><span>Estimated arrival</span></div>
         <div id="goOptions" class="go-options"></div>
-        <button class="go-map-open" id="goMapOpen" type="button"><span aria-hidden="true">⌖</span> Live trolley &amp; stops map</button>
+        <button class="go-map-open" id="goLiveOpen" type="button" aria-haspopup="dialog"><span aria-hidden="true">⌖</span> Live trolleys</button>
+        <button class="go-map-open" id="goMapOpen" type="button" aria-haspopup="dialog">Choose stops on the map</button>
+        <p class="go-footnote go-bus-scope">Metrobus 3 &amp; 9: arrival estimates only. Bus vehicle locations are not available in this app.</p>
         <div class="go-freshness"><p id="goFreshness">Checking live arrivals…</p><button type="button" id="goRefresh">Refresh</button></div>
         <p class="go-footnote">Biscayne trolley + Metrobus 3 &amp; 9. Times are estimates, not guarantees. Independent Miami transit app.</p>
       </section>
 
+      <dialog id="goLive" class="go-live" aria-labelledby="goLiveTitle">
+        <header><div><h2 id="goLiveTitle">Live Biscayne trolleys</h2><p>Vehicle positions, not predicted arrival times.</p></div><button type="button" id="goLiveClose" aria-label="Close live trolleys">×</button></header>
+        <p id="goVehicleStatus" class="go-live-status" role="status">Checking trolley positions…</p>
+        <div id="goVehicleMap" aria-label="Live Biscayne trolley vehicle map"></div>
+        <p id="goTileError" class="go-live-status" role="status" hidden>Map tiles could not load. Vehicle details remain available below.</p>
+        <div class="go-live-actions"><button id="goShowAll" type="button">Show all trolleys</button><button id="goLiveRefresh" type="button">Refresh positions</button></div>
+        <div id="goVehicleList" class="go-vehicle-list" aria-label="Trolley positions"></div>
+        <p class="go-live-note">Yellow icons are trolleys; the line follows the saved Biscayne stops. Updates every 30 seconds. Positions older than 4 minutes are hidden. Metrobus vehicle tracking is not connected.</p>
+      </dialog>
       <dialog id="goSettings" class="go-settings" aria-labelledby="goSettingsTitle">
         <header><h2 id="goSettingsTitle">Settings</h2><button id="goSettingsClose" type="button" aria-label="Close settings">×</button></header>
         <label class="go-theme">Appearance <select id="goTheme" aria-label="Appearance"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
@@ -43,7 +54,6 @@
         <div class="go-chooser-roles" role="group" aria-label="Assign selection"><button type="button" data-go-assign="from">A · From</button><button type="button" data-go-assign="to">B · To</button></div>
         <label class="go-search"><span class="sr-only">Find a place or stop</span><input type="search" id="goSearch" placeholder="Find a place, street or bus…" autocomplete="off" /></label>
         <div class="go-map-frame"><div id="goMap" aria-label="Map of combined trolley and bus stops"></div><span class="go-crosshair" aria-hidden="true"></span></div>
-        <p class="go-live-status" id="goLiveStatus" role="status"></p>
         <div class="go-map-actions"><button type="button" id="goUsePoint">Use this map point</button><button type="button" id="goNearby">Nearby stops</button></div>
         <p class="go-map-caption" id="goMapHint">Move the map under the crosshair, or tap a stop.</p>
         <div class="go-list-heading"><strong id="goListTitle">Places &amp; stops</strong><button id="goAllStops" type="button" hidden>Show all</button></div>

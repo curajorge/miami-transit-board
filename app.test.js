@@ -21,6 +21,8 @@ test("standalone startup works without legacy DOM and with every feed offline", 
   assert.ok(state.locations.some(location => location.services.includes("bus-3")));
   assert.ok(state.locations.some(location => location.services.includes("trolley")));
   assert.match(state.lastError, /unavailable/);
+  assert.equal(state.trolleyStatus, "unavailable");
+  assert.equal(state.trolleyCheckedAt, null);
 });
 test("malformed positions and arrival minutes cannot poison the planner", async () => {
   const context = await boot(async url => ({ ok: true, json: async () => url.includes("/api/bus")
@@ -30,6 +32,27 @@ test("malformed positions and arrival minutes cannot poison the planner", async 
   assert.equal(state.vehicles.length, 1);
   assert.deepEqual(Array.from(state.buses[0].minutes), [4, 8]);
   assert.equal(state.refreshing, false);
+  assert.equal(state.trolleyStatus, "ready");
+});
+test("wrong-route and out-of-area vehicles cannot enter the Biscayne map", async () => {
+  const base = { Lat: 25.8, Lng: -80.19, Tim: Date.now()/1000, Hea: 180, RouteID: "71276" };
+  const context = await boot(async () => ({ ok: true, json: async () => [base, {...base, RouteID: "other"}, {...base, Lat: 0}, {...base, Lng: 0}] }));
+  assert.equal(vm.runInContext("state.vehicles.length", context), 1);
+});
+test("a failed refresh retains last-known timestamps but reports unavailable", async () => {
+  const vehicle = { Lat: 25.8, Lng: -80.19, Tim: Date.now()/1000-30, Hea: 180 };
+  const context = await boot(async () => ({ok: true, json: async () => [vehicle]}));
+  const checkedAt = vm.runInContext("state.trolleyCheckedAt", context);
+  context.fetch = async () => { throw new Error("provider offline"); };
+  await vm.runInContext("refreshVehicles()", context);
+  assert.equal(vm.runInContext("state.trolleyStatus", context), "unavailable");
+  assert.equal(vm.runInContext("state.vehicles[0].Tim", context), vehicle.Tim);
+  assert.equal(vm.runInContext("state.trolleyCheckedAt", context), checkedAt);
+});
+test("an empty successful response is not an outage and clears old positions", async () => {
+  const context = await boot(async () => ({ok: true, json: async () => []}));
+  assert.equal(vm.runInContext("state.trolleyStatus", context), "ready");
+  assert.equal(vm.runInContext("state.vehicles.length", context), 0);
 });
 test("released page has one interface and no prototype navigation", () => {
   const html = fs.readFileSync("index.html", "utf8");
